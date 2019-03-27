@@ -7,6 +7,8 @@ __pycache__/
 *torchaudio
 *torchaudio.egg*
 
+timit
+
 # C extensions
 *.so
 

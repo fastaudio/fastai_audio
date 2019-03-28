@@ -8,6 +8,7 @@ __pycache__/
 *torchaudio.egg*
 
 timit
+drafts
 
 # C extensions
 *.so

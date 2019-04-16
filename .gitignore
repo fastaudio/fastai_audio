@@ -9,6 +9,7 @@ __pycache__/
 
 timit
 drafts
+nb_*
 
 # C extensions
 *.so

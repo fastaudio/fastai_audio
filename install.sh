@@ -10,3 +10,4 @@ sudo apt-get --assume-yes install ffmpeg sox libsox-dev libsox-fmt-all
 git clone https://github.com/pytorch/audio.git torchaudio
 cd torchaudio
 python setup.py install
+bash buildFastAiAudio.sh 

@@ -9,7 +9,6 @@ __pycache__/
 
 timit
 drafts
-nb_*
 
 # C extensions
 *.so
@@ -110,3 +109,10 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+**/models/
+**/data/
+# DATA
+depth_perception/images/
+
+*.jpg

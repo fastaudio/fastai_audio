@@ -5,6 +5,5 @@
 
 set -m
 pip install pydub librosa fire --user
-mkdir exp
 sudo apt-get --assume-yes install ffmpeg sox libsox-dev libsox-fmt-all
 pip install git+https://github.com/pytorch/audio.git

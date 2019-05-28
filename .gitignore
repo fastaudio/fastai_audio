@@ -1,15 +1,15 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
+*.pyc
 *.py[cod]
 *$py.class
 *yesno
 *processed_audio
 *torchaudio
 *torchaudio.egg*
-
+.*
 timit
 drafts
-nb_*
 
 # C extensions
 *.so
@@ -110,3 +110,9 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+**/models/
+# DATA
+
+*.jpg
+play.py

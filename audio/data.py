@@ -6,7 +6,7 @@ import hashlib
 
 from fastai.vision import *
 import torchaudio
-from torchaudio import transforms
+from torchaudio.transforms import MelSpectrogram, SpectrogramToDB
 from .audio import *
 from .transform import *
 

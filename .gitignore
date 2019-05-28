@@ -1,12 +1,13 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
+*.pyc
 *.py[cod]
 *$py.class
 *yesno
 *processed_audio
 *torchaudio
 *torchaudio.egg*
-
+.*
 timit
 drafts
 
@@ -111,8 +112,7 @@ venv.bak/
 .mypy_cache/
 
 **/models/
-**/data/
-# DATA
-depth_perception/images/
 
 *.jpg
+# DAT
+play.py

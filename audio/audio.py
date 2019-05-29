@@ -2,9 +2,10 @@ from IPython.display import Audio
 import mimetypes
 import torchaudio
 from torchaudio.transforms import PadTrim
-from fastai.data_block import ItemBase
+from fastai.data_block import ItemBase, Path
 from fastai.vision import Image
 import numpy as np
+from pathlib import PosixPath
 
 AUDIO_EXTENSIONS = tuple(str.lower(k) for k, v in mimetypes.types_map.items()
                          if v.startswith('audio/'))
@@ -25,12 +26,15 @@ class AudioItem(ItemBase):
         return f'{self.__str__()}<br />{self.ipy_audio._repr_html_()}'
 
     @classmethod
-    def open(self, item, **args):
-        if isinstance(item, (Path, str)):
+    def open(self, item, **args): 
+        if isinstance(item, ItemBase):
+            return item
+        if isinstance(item, (PosixPath, Path, str)):
             sig, sr = torchaudio.load(item)
             return AudioItem(sig, sr, path=item)
         if isinstance(item, (tuple, np.ndarray)):
             return AudioItem(item)
+        raise Exception("Can't handle", type(item))
 
     def show(self, title: [str] = None, **kwargs):
         self.hear(title=title)

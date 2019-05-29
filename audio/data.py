@@ -81,7 +81,8 @@ def resample_item(item, config):
     sr_new = config.resample_to
     files = get_cache(config, "rs", [item_path, sr_new])
     if not files:
-        sig, sr = torchaudio.load(item_path)
+        ai = AudioItem.open(item_path)
+        sig, sr = ai.sig, ai.sr
         sig = [tfm_resample(sig, sr, sr_new)]
         files = make_cache(sig, sr_new, config, "rs", [item_path, sr_new])
     return list(zip(files, [label]*len(files)))
@@ -91,14 +92,16 @@ def remove_silence(item, config):
     st, sp = config.silence_threshold, config.silence_padding
     files = get_cache(config, "sh", [item_path, st, sp])
     if not files:
-        sig, sr = torchaudio.load(item_path)
+        ai = AudioItem.open(item_path)
+        sig, sr = ai.sig, ai.sr
         sigs = tfm_chop_silence(sig, sr, st, sp)
         files = make_cache(sigs, sr, config, "sh", [item_path, st, sp])
     return list(zip(files, [label]*len(files)))
 
 def segment_items(item, config):
     item_path, label = item
-    sig, sr = torchaudio.load(item_path)
+    ai = AudioItem.open(item_path)
+    sig, sr = ai.sig, ai.sr
     segsize = int(config.segment_size / 1000 * sr)
     files = get_cache(config, "s", [item_path, segsize, label])
     if not files:

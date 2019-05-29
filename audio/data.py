@@ -13,6 +13,12 @@ from .transform import *
 def md5(s):
     return hashlib.md5(s.encode("utf-8")).hexdigest()
 
+def preview_transforms(items, path, config):
+    if not isinstance(items, (list, np.ndarray)):
+        items = [items]
+    audios = AudioList(items, path, config=config).split_none().label_empty()
+    return audios.train    
+
 class AudioDataBunch(DataBunch):
     def show_batch(self, rows: int = 3, ds_type: DatasetType = DatasetType.Train, **kwargs):
         batch = self.dl(ds_type).dataset[:rows]

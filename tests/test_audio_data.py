@@ -52,7 +52,7 @@ def test_cache_silence(random_item):
         assert os.path.exists(f)
         assert os.path.isfile(f)
         assert torchaudio.load(f)
-        
+
 def test_cache_segment(random_item):
     #this_tests(segment_items)
     segsize = 500
@@ -66,5 +66,6 @@ def test_cache_segment(random_item):
         assert os.path.exists(f)
         assert os.path.isfile(f)
         assert torchaudio.load(f)
-    
-#def test_cache_read(path):
+
+def test_data(random_item):
+

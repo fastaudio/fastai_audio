@@ -118,26 +118,38 @@ class AudioLabelList(LabelList):
         x, y = self.x, self.y
         cfg = x.config
         if len(x.items) > 0 and (cfg.remove_silence or cfg.segment_size or cfg.resample_to):
-            items = list(zip(x.items, y.items))
+            items = []
+            for i in x.items:
+                if isinstance(i, (PosixPath, Path, str)) and str(x.path) not in str(i):
+                    items.append(x.path/i)
+                elif str(x.path) not in str(i.path):
+                    i.path = x.path/i.path
+                    items.append(i)
+                else: 
+                    items.append(i)
+            x.inner_df = None
+            items = list(zip(items, y.items))
 
             def concat(x, y): return np.concatenate(
                 (x, y)) if len(y) > 0 else x
             
+            
             if x.config.resample_to:
-                items = [resample_item(i, x.config) for i in items]
+                items = [resample_item(i, cfg) for i in items]
                 items = reduce(concat, items, np.empty((0, 2)))
-
+            
+            
             if x.config.remove_silence:
-                items = [remove_silence(i, x.config) for i in items]
+                items = [remove_silence(i, cfg) for i in items]
                 items = reduce(concat, items, np.empty((0, 2)))
-
+            
             if x.config.segment_size:
-                items = [segment_items(i, x.config) for i in items]
+                items = [segment_items(i, cfg) for i in items]
                 items = reduce(concat, items, np.empty((0, 2)))
 
             nx, ny = tuple(zip(*items))
             x.items, y.items = np.array(nx), np.array(ny)
-
+            
         self.x, self.y = x, y
         self.y.x = x
 
@@ -189,12 +201,12 @@ class AudioList(ItemList):
 
     def get(self, i):
         item = self.items[i]
+        
+        if isinstance(item, (PosixPath, Path, str)):
+            return self.open(self.path/item)
 
         if isinstance(item, AudioItem):
             return item
-
-        if isinstance(item, (PosixPath, Path, str)):
-            return self.open(self.path/item)
 
         raise Exception("Can't handle that type")
 

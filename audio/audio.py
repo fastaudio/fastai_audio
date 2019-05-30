@@ -26,7 +26,7 @@ class AudioItem(ItemBase):
         return f'{self.__str__()}<br />{self.ipy_audio._repr_html_()}'
 
     @classmethod
-    def open(self, item, **args): 
+    def open(self, item, **args):
         if isinstance(item, ItemBase):
             return item
         if isinstance(item, (PosixPath, Path, str)):
@@ -37,6 +37,7 @@ class AudioItem(ItemBase):
         raise Exception("Can't handle", type(item))
 
     def show(self, title: [str] = None, **kwargs):
+        print(self)
         self.hear(title=title)
         if self.spectro is not None: display(Image(self.spectro))
 

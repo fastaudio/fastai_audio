@@ -177,7 +177,7 @@ class AudioList(ItemList):
         cfg = self.config
         if cfg.use_spectro:
             cache_dir = self.path / cfg.cache_dir
-            s = md5(str(asdict(cfg)) + str(p))
+            s = md5(str(asdict(cfg)) + str(asdict(cfg.sg_cfg)) + str(p))
             image_path = cache_dir/(f"{s}.pt")
             if cfg.cache and not cfg.force_cache and image_path.exists():
                 spectro = torch.load(image_path)

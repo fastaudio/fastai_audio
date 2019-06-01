@@ -1,4 +1,4 @@
-from pathlib import Path as PosixPath
+from pathlib import PosixPath
 from IPython.core.debugger import set_trace
 import os
 from dataclasses import dataclass, asdict
@@ -51,6 +51,7 @@ class AudioTransformConfig:
     top_db: int = 80
     processed = False
     segment_size: int = None
+    window_size: int = None
     silence_threshold: int = 20
     max_to_pad: float = None
     sg_cfg = SpectrogramConfig()
@@ -79,6 +80,7 @@ def make_cache(sigs, sr, config, cache_type, hash_params):
 def resample_item(item, config):
     item_path, label = item
     sr_new = config.resample_to
+    # print("asdsad", item_path)
     files = get_cache(config, "rs", [item_path, sr_new])
     if not files:
         ai = AudioItem.open(item_path)
@@ -103,12 +105,18 @@ def segment_items(item, config):
     ai = AudioItem.open(item_path)
     sig, sr = ai.sig, ai.sr
     segsize = int(config.segment_size / 1000 * sr)
+    window_size = segsize if config.window_size is None else int(config.window_size / 1000 * sr)
     files = get_cache(config, "s", [item_path, segsize, label])
     if not files:
         sig = sig.squeeze()
         sigs = []
-        for i in range(int(len(sig)/segsize) + 1):
-            sigs.append(sig[i*segsize: min((i+1)*segsize, len(sig))])
+        i = 0
+        if len(sig) < segsize:
+            sigs.append(sig)
+        else:
+            while (i + segsize) < len(sig):
+                sigs.append(sig[i:i+segsize])
+                i += config.window_size
         files = make_cache(sigs, sr, config, "s", [item_path, segsize, label])
     return list(zip(files, [label]*len(files)))
 
@@ -120,19 +128,17 @@ class AudioLabelList(LabelList):
         if len(x.items) > 0 and (cfg.remove_silence or cfg.segment_size or cfg.resample_to):
             items = []
             for i in x.items:
-                if isinstance(i, (PosixPath, Path, str)) and str(x.path) not in str(i):
-                    items.append(x.path/i)
+                if isinstance(i, (PosixPath, Path, str)):
+                    if str(x.path) not in str(i):
+                        items.append(x.path/i)
+                        continue
                 elif str(x.path) not in str(i.path):
-                    i.path = x.path/i.path
-                    items.append(i)
-                else: 
-                    items.append(i)
+                    i.path = x.path/i.path                
+                items.append(i)
             x.inner_df = None
             items = list(zip(items, y.items))
-
             def concat(x, y): return np.concatenate(
                 (x, y)) if len(y) > 0 else x
-            
             
             if x.config.resample_to:
                 items = [resample_item(i, cfg) for i in items]
@@ -146,6 +152,7 @@ class AudioLabelList(LabelList):
             if x.config.segment_size:
                 items = [segment_items(i, cfg) for i in items]
                 items = reduce(concat, items, np.empty((0, 2)))
+
 
             nx, ny = tuple(zip(*items))
             x.items, y.items = np.array(nx), np.array(ny)

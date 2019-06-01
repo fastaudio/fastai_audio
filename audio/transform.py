@@ -65,7 +65,7 @@ def get_spectro_transforms(mask_time:bool=True,
     if mask_time: res.append(partial(tfm_mask_time, **kwargs))
     if mask_frequency: res.append(partial(tfm_mask_frequency, **kwargs))
     if roll: res.append(partial(tfm_sg_roll, **kwargs))
-    
+    for x in res: x.use_on_y = False
     return (res+listify(xtra_tfms), [])
 
 def tfm_trim_silence(signal, rate, threshold=20, pad_ms=200):

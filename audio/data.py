@@ -116,7 +116,7 @@ def segment_items(item, config):
         else:
             while (i + segsize) < len(sig):
                 sigs.append(sig[i:i+segsize])
-                i += config.window_size
+                i += window_size
         files = make_cache(sigs, sr, config, "s", [item_path, segsize, label])
     return list(zip(files, [label]*len(files)))
 

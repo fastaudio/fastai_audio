@@ -46,13 +46,14 @@ def tfm_mask_frequency(spectro, fmasks=1, num_rows=30, start_row=None, fmask_val
     sg = spectro.clone().squeeze(0)
     mask_value = sg.mean() if fmask_value is None else fmask_value
     x, y = sg.shape
+    print(fmasks)
     for _ in range(fmasks):
         mask = torch.ones(num_rows, y) * mask_value
         if start_row is None: start_row = random.randint(0, x-num_rows)
         if not 0 <= start_row <= x-num_rows: 
             raise ValueError(f"start_row value '{start_row}' out of range for sg of shape {sg.shape}")
         sg[start_row:start_row+num_rows,:] = mask
-        start_hori = None
+        start_row = None
     return sg.unsqueeze(0)
 
 def get_spectro_transforms(mask_time:bool=True,
@@ -80,8 +81,9 @@ def tfm_chop_silence(signal, rate, threshold=20, pad_ms=200):
     actual = signal.clone().squeeze()
     padding = int(pad_ms/1000*rate)
     if(padding > len(actual)): return [actual]
+    
     splits = split(actual.numpy(), top_db=threshold, hop_length=padding)
-    return [actual[(max(a,0) - padding):(b + min(padding,len(actual)))] for (a, b) in splits]
+    return [actual[max(a - padding,0):min(b+padding,len(actual))] for (a, b) in splits]
 
 def tfm_resample(signal, sr, sr_new):
     '''Resample using faster polyphase technique and avoiding FFT computation'''

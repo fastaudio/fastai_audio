@@ -14,6 +14,9 @@ def audio_predict(learn, item:AudioItem):
     config = learn.data.x.config
     path = learn.data.x.path
     al = AudioList([item], path, config=config).split_none().label_empty()
-    res = torch.tensor([learn.predict(ai)[1] for ai in al.x])
-    return learn.data.y.classes[torch.max(res)]
+    preds = [learn.predict(x)[2] for x in al.x]
+    preds = [learn.data.y.classes[(pred==torch.max(pred)).nonzero()] for pred in preds] 
+    return preds
+    # res = [learn.predict(ai)[2] for ai in al.x]
+    # return learn.data.y.classes[torch.max(res)]
     

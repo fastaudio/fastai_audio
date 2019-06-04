@@ -30,7 +30,7 @@ class AudioItem(ItemBase):
         if isinstance(item, ItemBase):
             return item
         if isinstance(item, (PosixPath, Path, str)):
-            sig, sr = torchaudio.load(item)
+            sig, sr = torchaudio.load(item, normalization=True)
             return AudioItem(sig, sr, path=item)
         if isinstance(item, (tuple, np.ndarray)):
             return AudioItem(item)
@@ -54,7 +54,7 @@ class AudioItem(ItemBase):
     def shape(self): return self.data.shape
 
     def _reload_signal(self):
-        sig, sr = torchaudio.load(self.path)
+        sig, sr = torchaudio.load(self.path, normalization=True)
         if self.max_to_pad is not None:
             sig = PadTrim(max_len=int(self.max_to_pad/1000*sr))(sig)
         self._sr = sr

@@ -26,6 +26,15 @@ class AudioDataBunch(DataBunch):
         for x, y in batch:
             print(y)
             x.show()
+    
+    def normalize(self, stats:Collection[Tensor]=None, do_x:bool=True, do_y:bool=False)->None:
+        "Add normalize transform using `stats` (defaults to `DataBunch.batch_stats`)"
+        if getattr(self,'norm',False): raise Exception('Can not call normalize twice')
+        if stats is None: self.stats = self.batch_stats()
+        else:             self.stats = stats
+        self.norm,self.denorm = normalize_funcs(*self.stats, do_x=do_x, do_y=do_y)
+        self.add_tfm(self.norm)
+        return self
 
 @dataclass
 class SpectrogramConfig:
@@ -51,6 +60,7 @@ class AudioTransformConfig:
     top_db: int = 80
     processed = False
     segment_size: int = None
+    max_segments: int = None
     window_size: int = None
     silence_threshold: int = 20
     max_to_pad: float = None
@@ -105,6 +115,7 @@ def segment_items(item, config):
     ai = AudioItem.open(item_path)
     sig, sr = ai.sig, ai.sr
     segsize = int(config.segment_size / 1000 * sr)
+    
     window_size = segsize if config.window_size is None else int(config.window_size / 1000 * sr)
     files = get_cache(config, "s", [item_path, segsize, label])
     if not files:
@@ -114,10 +125,12 @@ def segment_items(item, config):
         if len(sig) < segsize:
             sigs.append(sig)
         else:
-            while (i + segsize) < len(sig):
+            while (i + segsize) <= len(sig):
                 sigs.append(sig[i:i+segsize])
                 i += window_size
         files = make_cache(sigs, sr, config, "s", [item_path, segsize, label])
+    if config.max_segments is not None and len(files) > config.max_segments:
+        files = np.random.choice(files, config.max_segments)
     return list(zip(files, [label]*len(files)))
 
 class AudioLabelList(LabelList):
@@ -137,8 +150,10 @@ class AudioLabelList(LabelList):
                 items.append(i)
             x.inner_df = None
             items = list(zip(items, y.items))
+            
             def concat(x, y): return np.concatenate(
                 (x, y)) if len(y) > 0 else x
+            
             
             if x.config.resample_to:
                 items = [resample_item(i, cfg) for i in items]
@@ -149,10 +164,11 @@ class AudioLabelList(LabelList):
                 items = [remove_silence(i, cfg) for i in items]
                 items = reduce(concat, items, np.empty((0, 2)))
             
+
             if x.config.segment_size:
                 items = [segment_items(i, cfg) for i in items]
                 items = reduce(concat, items, np.empty((0, 2)))
-
+            
 
             nx, ny = tuple(zip(*items))
             x.items, y.items = np.array(nx), np.array(ny)
@@ -190,7 +206,7 @@ class AudioList(ItemList):
                 spectro = torch.load(image_path)
                 return AudioItem(spectro=spectro, path=item, max_to_pad=cfg.max_to_pad)
 
-        signal, samplerate = torchaudio.load(str(p))
+        signal, samplerate = torchaudio.load(str(p), normalization=True)
 
         if cfg.max_to_pad:
             signal = PadTrim(max_len=int(cfg.max_to_pad/1000*samplerate))(signal)

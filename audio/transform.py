@@ -19,8 +19,7 @@ def tfm_sg_roll(spectro, max_shift_pct=0.7, direction=0, **kwargs):
         raise Exception('You are trying to apply the tranform to as signal')
     if int(direction) not in [-1, 0, 1]: 
         raise ValueError("Direction must be -1(left) 0(bidirectional) or 1(right)")
-    direction = random.choice([-1, 1]) if direction == 0 else direction
-    
+    direction = random.choice([-1, 1]) if direction == 0 else direction 
     sg = spectro.clone()
     width = sg.shape[1]
     roll_by = int(width*random.random()*max_shift_pct*direction)
@@ -46,7 +45,6 @@ def tfm_mask_frequency(spectro, fmasks=1, num_rows=30, start_row=None, fmask_val
     sg = spectro.clone().squeeze(0)
     mask_value = sg.mean() if fmask_value is None else fmask_value
     x, y = sg.shape
-    print(fmasks)
     for _ in range(fmasks):
         mask = torch.ones(num_rows, y) * mask_value
         if start_row is None: start_row = random.randint(0, x-num_rows)
@@ -83,6 +81,8 @@ def tfm_chop_silence(signal, rate, threshold=20, pad_ms=200):
     if(padding > len(actual)): return [actual]
     
     splits = split(actual.numpy(), top_db=threshold, hop_length=padding)
+    if len(splits) < 1:
+        return [actual]
     return [actual[max(a - padding,0):min(b+padding,len(actual))] for (a, b) in splits]
 
 def tfm_resample(signal, sr, sr_new):

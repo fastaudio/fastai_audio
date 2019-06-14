@@ -150,7 +150,7 @@ class AudioList(ItemList):
 
     def open(self, item) -> AudioItem:
         p = Path(item)
-        if not p.exists():                                raise Exception('File not found: ' + p)
+        if not p.exists():                                raise Exception('File not found: ' + str(p))
         if not str(p).lower().endswith(AUDIO_EXTENSIONS): raise Exception("Invalid audio file")
 
         cfg = self.config

@@ -13,6 +13,28 @@ from librosa.effects import split
 from torchaudio import transforms
 from scipy.signal import resample_poly
 
+#Code altered from a kaggle kernel shared by @daisukelab
+def mono_to_color(X, mean=None, std=None, norm_max=None, norm_min=None, eps=1e-6):
+    # Standardize
+#     mean = mean or X.mean()
+#     std = std or X.std()
+#     Xstd = (X - mean) / (std + eps)
+#     _min, _max = Xstd.min(), Xstd.max()
+#     norm_max = norm_max or _max
+#     norm_min = norm_min or _min
+#     # Scale to [0, 1]
+#     if (_max - _min) > eps:
+#         V = Xstd
+#         V[V < norm_min] = norm_min
+#         V[V > norm_max] = norm_max
+#         V = (V - norm_min) / (norm_max - norm_min)
+
+#     else: V = torch.zeros_like(Xstd)
+    #Equivalent to torch.stack[X,X,X] for 3 channels, but does so using shared memory
+    V=X
+    V = V.expand(3, -1, -1)
+    return V
+
 def tfm_sg_roll(spectro, max_shift_pct=0.7, direction=0, **kwargs):
     '''Shifts spectrogram along x-axis wrapping around to other side'''
     if len(spectro.shape) < 2:

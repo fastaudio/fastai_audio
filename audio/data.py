@@ -31,6 +31,7 @@ class SpectrogramConfig:
     f_max: int = 8000
     pad: int = 0
     n_mels: int = 224
+    
 
 @dataclass
 class AudioTransformConfig:
@@ -47,8 +48,11 @@ class AudioTransformConfig:
     segment_size: int = None
     silence_threshold: int = 20
     max_to_pad: float = None
-    sg_cfg = SpectrogramConfig()
     resample_to: int = None
+    standardize: bool = False
+    sg_cfg = SpectrogramConfig()
+    
+    
 
 def get_cache(config, cache_type, hash_params):
     if not config.cache_dir: return None
@@ -70,8 +74,9 @@ def make_cache(sigs, sr, config, cache_type, hash_params):
             torchaudio.save(str(fn), s, sr)
     return files
 
-def resample_item(item, config):
+def resample_item(item, config, path):
     item_path, label = item
+    if not os.path.exists(item_path): item_path = path/item_path
     sr_new = config.resample_to
     files = get_cache(config, "rs", [item_path, sr_new])
     if not files:
@@ -80,8 +85,9 @@ def resample_item(item, config):
         files = make_cache(sig, sr_new, config, "rs", [item_path, sr_new])
     return list(zip(files, [label]*len(files)))
 
-def remove_silence(item, config):
+def remove_silence(item, config, path):
     item_path, label = item
+    if not os.path.exists(item_path): item_path = path/item_path
     st, sp = config.silence_threshold, config.silence_padding
     files = get_cache(config, "sh", [item_path, st, sp])
     if not files:
@@ -90,8 +96,9 @@ def remove_silence(item, config):
         files = make_cache(sigs, sr, config, "sh", [item_path, st, sp])
     return list(zip(files, [label]*len(files)))
 
-def segment_items(item, config):
+def segment_items(item, config, path):
     item_path, label = item
+    if not os.path.exists(item_path): item_path = path/item_path
     sig, sr = torchaudio.load(item_path)
     segsize = int(config.segment_size / 1000 * sr)
     files = get_cache(config, "s", [item_path, segsize, label])
@@ -115,15 +122,15 @@ class AudioLabelList(LabelList):
                 (x, y)) if len(y) > 0 else x
             
             if x.config.resample_to:
-                items = [resample_item(i, x.config) for i in items]
+                items = [resample_item(i, x.config, x.path) for i in items]
                 items = reduce(concat, items, np.empty((0, 2)))
 
             if x.config.remove_silence:
-                items = [remove_silence(i, x.config) for i in items]
+                items = [remove_silence(i, x.config, x.path) for i in items]
                 items = reduce(concat, items, np.empty((0, 2)))
 
             if x.config.segment_size:
-                items = [segment_items(i, x.config) for i in items]
+                items = [segment_items(i, x.config, x.path) for i in items]
                 items = reduce(concat, items, np.empty((0, 2)))
 
             nx, ny = tuple(zip(*items))
@@ -150,7 +157,9 @@ class AudioList(ItemList):
 
     def open(self, item) -> AudioItem:
         p = Path(item)
-        if not p.exists():                                raise Exception('File not found: ' + p)
+        if not p.exists(): 
+            p = self.path/item
+            if not p.exists(): raise FileNotFoundError(f"Neither '{item}' nor '{p}' could be found")
         if not str(p).lower().endswith(AUDIO_EXTENSIONS): raise Exception("Invalid audio file")
 
         cfg = self.config
@@ -159,8 +168,10 @@ class AudioList(ItemList):
             s = md5(str(asdict(cfg)) + str(p))
             image_path = cache_dir/(f"{s}.pt")
             if cfg.cache and not cfg.force_cache and image_path.exists():
-                spectro = torch.load(image_path)
-                return AudioItem(spectro=spectro, path=item, max_to_pad=cfg.max_to_pad)
+                mel = torch.load(image_path).squeeze()
+                if cfg.standardize: mel = standardize(mel)
+                mel = mel.expand(3,-1,-1)
+                return AudioItem(spectro=mel, path=item, max_to_pad=cfg.max_to_pad)
 
         signal, samplerate = torchaudio.load(str(p))
 
@@ -170,12 +181,14 @@ class AudioList(ItemList):
         mel = None
         if cfg.use_spectro:
             mel = MelSpectrogram(**asdict(cfg.sg_cfg))(signal.reshape(1, -1))
-            mel = mel.permute(0, 2, 1)
+            mel = mel.permute(0, 2, 1).squeeze()
             if cfg.to_db_scale:
                 mel = SpectrogramToDB(top_db=cfg.top_db)(mel)
             if cfg.cache:
                 os.makedirs(image_path.parent, exist_ok=True)
                 torch.save(mel, image_path)
+            if cfg.standardize: mel = standardize(mel)
+            mel = mel.expand(3,-1,-1)
         return AudioItem(sig=signal.squeeze(), sr=samplerate, spectro=mel, path=item)
 
     def get(self, i):

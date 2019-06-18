@@ -11,6 +11,26 @@ import librosa
 import torchaudio
 from librosa.effects import split
 from torchaudio import transforms
+from scipy.signal import resample_poly
+
+
+#Code altered from a kaggle kernel shared by @daisukelab, scales a spectrogram
+#to be floats between 0 and 1 as this is how most 3 channel images are handled
+def standardize(mel, mean=None, std=None, norm_max=None, norm_min=None, eps=1e-6):
+    mean = mean or mel.mean()
+    std = std or mel.std()
+    mel_std = (mel - mean) / (std + eps)
+    _min, _max = mel_std.min(), mel_std.max()
+    norm_max = norm_max or _max
+    norm_min = norm_min or _min
+    # Scale to [0, 1]
+    if (_max - _min) > eps:
+        V = mel_std
+        V[V < norm_min] = norm_min
+        V[V > norm_max] = norm_max
+        V = (V - norm_min) / (norm_max - norm_min)
+    else: V = torch.zeros_like(mel_std)    
+    return V
 
 def tfm_sg_roll(spectro, max_shift_pct=0.7, direction=0, **kwargs):
     '''Shifts spectrogram along x-axis wrapping around to other side'''

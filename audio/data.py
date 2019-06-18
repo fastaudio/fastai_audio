@@ -31,7 +31,7 @@ class SpectrogramConfig:
     f_max: int = 8000
     pad: int = 0
     n_mels: int = 224
-    standardize: bool = False
+    
 
 @dataclass
 class AudioTransformConfig:
@@ -48,8 +48,10 @@ class AudioTransformConfig:
     segment_size: int = None
     silence_threshold: int = 20
     max_to_pad: float = None
-    sg_cfg = SpectrogramConfig()
     resample_to: int = None
+    standardize: bool = False
+    sg_cfg = SpectrogramConfig()
+    
     
 
 def get_cache(config, cache_type, hash_params):
@@ -167,7 +169,7 @@ class AudioList(ItemList):
             image_path = cache_dir/(f"{s}.pt")
             if cfg.cache and not cfg.force_cache and image_path.exists():
                 mel = torch.load(image_path).squeeze()
-                if cfg.sg_cfg.standardize: mel = standardize(mel)
+                if cfg.standardize: mel = standardize(mel)
                 stacked = mel.expand(3,-1,-1)
                 return AudioItem(spectro=stacked, path=item, max_to_pad=cfg.max_to_pad)
 
@@ -185,7 +187,7 @@ class AudioList(ItemList):
             if cfg.cache:
                 os.makedirs(image_path.parent, exist_ok=True)
                 torch.save(mel, image_path)
-            if cfg.sg_cfg.standardize: mel = standardize(mel)
+            if cfg.standardize: mel = standardize(mel)
             stacked = mel.expand(3,-1,-1)
         return AudioItem(sig=signal.squeeze(), sr=samplerate, spectro=stacked, path=item)
 

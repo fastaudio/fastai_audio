@@ -170,8 +170,8 @@ class AudioList(ItemList):
             if cfg.cache and not cfg.force_cache and image_path.exists():
                 mel = torch.load(image_path).squeeze()
                 if cfg.standardize: mel = standardize(mel)
-                stacked = mel.expand(3,-1,-1)
-                return AudioItem(spectro=stacked, path=item, max_to_pad=cfg.max_to_pad)
+                mel = mel.expand(3,-1,-1)
+                return AudioItem(spectro=mel, path=item, max_to_pad=cfg.max_to_pad)
 
         signal, samplerate = torchaudio.load(str(p))
 
@@ -188,8 +188,8 @@ class AudioList(ItemList):
                 os.makedirs(image_path.parent, exist_ok=True)
                 torch.save(mel, image_path)
             if cfg.standardize: mel = standardize(mel)
-            stacked = mel.expand(3,-1,-1)
-        return AudioItem(sig=signal.squeeze(), sr=samplerate, spectro=stacked, path=item)
+            mel = mel.expand(3,-1,-1)
+        return AudioItem(sig=signal.squeeze(), sr=samplerate, spectro=mel, path=item)
 
     def get(self, i):
         item = self.items[i]

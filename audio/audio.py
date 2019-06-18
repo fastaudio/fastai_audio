@@ -5,6 +5,7 @@ from torchaudio.transforms import PadTrim
 from fastai.data_block import ItemBase
 from fastai.vision import Image
 import numpy as np
+import torch
 
 AUDIO_EXTENSIONS = tuple(str.lower(k) for k, v in mimetypes.types_map.items()
                          if v.startswith('audio/'))
@@ -34,7 +35,14 @@ class AudioItem(ItemBase):
 
     def show(self, title: [str] = None, **kwargs):
         self.hear(title=title)
-        if self.spectro is not None: display(Image(self.spectro))
+        sg = self.spectro
+        if sg is not None: 
+            if torch.all(torch.eq(sg[0], sg[1])) and torch.all(torch.eq(sg[0], sg[2])):
+                display(Image(sg[0].unsqueeze(0)))
+            else: 
+                display(Image(sg[0].unsqueeze(0)))
+                display(Image(sg[1].unsqueeze(0)))
+                display(Image(sg[2].unsqueeze(0)))
 
     def hear(self, title=None):
         if title is not None: print(title)

@@ -24,13 +24,13 @@ class AudioDataBunch(DataBunch):
 @dataclass
 class SpectrogramConfig:
     '''Configuration for how Spectrograms are generated'''
-    n_fft: int = 1024
+    n_fft: int = 2560
     ws: int = None
-    hop: int = 72
+    hop: int = 512
     f_min: int = 0
     f_max: int = 8000
     pad: int = 0
-    n_mels: int = 224
+    n_mels: int = 128
     
 
 @dataclass

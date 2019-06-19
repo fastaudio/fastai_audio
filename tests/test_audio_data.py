@@ -34,7 +34,7 @@ def test_cache_resample(random_item):
     path_resample = config.cache_dir / f"sh_{md5(str(p)+str(rs))}"
     if os.path.exists(path_resample): os.remove(path_resample)
     assert not os.path.exists(path_resample)
-    files = resample_item(item, config)
+    files = resample_item(item, config, p)
     for f, _ in files:
         assert os.path.exists(f)
         assert os.path.isfile(f)
@@ -47,7 +47,7 @@ def test_cache_silence(random_item):
     config = AudioTransformConfig(cache=True, silence_threshold=st, silence_padding=sp)
     item = (p, "Label Not Important")
     path_silence = config.cache_dir / f"sh_{md5(str(p)+str(st)+str(sp))}"
-    files = remove_silence(item, config)
+    files = remove_silence(item, config, p)
     for f, _ in files:
         assert os.path.exists(f)
         assert os.path.isfile(f)
@@ -61,10 +61,11 @@ def test_cache_segment(random_item):
     label = "Label Not Important"
     item = (p, label)
     path_segment = config.cache_dir / f"s_{md5(str(p)+str(segsize)+str(label))}"
-    files = segment_items(item, config)
+    files = segment_items(item, config, p)
     for f, _ in files:
         assert os.path.exists(f)
         assert os.path.isfile(f)
         assert torchaudio.load(f)
-    
+        
+        
 #def test_cache_read(path):

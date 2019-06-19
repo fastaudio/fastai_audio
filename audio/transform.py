@@ -32,6 +32,9 @@ def standardize(mel, mean=None, std=None, norm_max=None, norm_min=None, eps=1e-6
     else: V = torch.zeros_like(mel_std)    
     return V
 
+def torchdelta(mel, order=1):
+    return torch.from_numpy(librosa.feature.delta(mel.numpy(), order=order))
+
 def tfm_sg_roll(spectro, max_shift_pct=0.7, direction=0, **kwargs):
     '''Shifts spectrogram along x-axis wrapping around to other side'''
     if len(spectro.shape) < 2:

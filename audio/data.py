@@ -6,7 +6,7 @@ import hashlib
 
 from fastai.vision import *
 import torchaudio
-from torchaudio.transforms import MelSpectrogram, SpectrogramToDB
+from torchaudio.transforms import MelSpectrogram, SpectrogramToDB, MFCC
 from .audio import *
 from .transform import *
 
@@ -51,9 +51,9 @@ class AudioTransformConfig:
     resample_to: int = None
     standardize: bool = False
     sg_cfg = SpectrogramConfig()
+    mfcc: bool = False
+    delta: bool = False
     
-    
-
 def get_cache(config, cache_type, hash_params):
     if not config.cache_dir: return None
     hash_str = md5("".join(map(str, hash_params)))
@@ -170,7 +170,6 @@ class AudioList(ItemList):
             if cfg.cache and not cfg.force_cache and image_path.exists():
                 mel = torch.load(image_path).squeeze()
                 if cfg.standardize: mel = standardize(mel)
-                mel = mel.expand(3,-1,-1)
                 return AudioItem(spectro=mel, path=item, max_to_pad=cfg.max_to_pad)
 
         signal, samplerate = torchaudio.load(str(p))
@@ -180,15 +179,19 @@ class AudioList(ItemList):
 
         mel = None
         if cfg.use_spectro:
-            mel = MelSpectrogram(**asdict(cfg.sg_cfg))(signal.reshape(1, -1))
-            mel = mel.permute(0, 2, 1).squeeze()
-            if cfg.to_db_scale:
-                mel = SpectrogramToDB(top_db=cfg.top_db)(mel)
+            if cfg.mfcc: mel = MFCC(sr=samplerate, n_mfcc=20, melkwargs=asdict(cfg.sg_cfg))(signal.reshape(1,-1))
+            else:
+                mel = MelSpectrogram(**asdict(cfg.sg_cfg))(signal.reshape(1, -1))
+                if cfg.to_db_scale: mel = SpectrogramToDB(top_db=cfg.top_db)(mel)
+            mel = mel.squeeze().permute(1, 0)
+            if cfg.standardize: mel = standardize(mel)
+                
+            if cfg.delta: mel = torch.stack([mel, torchdelta(mel), torchdelta(mel, order=2)]) 
+            else: mel = mel.expand(3,-1,-1)
             if cfg.cache:
                 os.makedirs(image_path.parent, exist_ok=True)
                 torch.save(mel, image_path)
-            if cfg.standardize: mel = standardize(mel)
-            mel = mel.expand(3,-1,-1)
+
         return AudioItem(sig=signal.squeeze(), sr=samplerate, spectro=mel, path=item)
 
     def get(self, i):

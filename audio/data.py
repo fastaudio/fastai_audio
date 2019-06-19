@@ -52,6 +52,7 @@ class AudioTransformConfig:
     standardize: bool = False
     sg_cfg = SpectrogramConfig()
     mfcc: bool = False
+    delta: bool = False
     
 def get_cache(config, cache_type, hash_params):
     if not config.cache_dir: return None
@@ -184,7 +185,9 @@ class AudioList(ItemList):
                 if cfg.to_db_scale: mel = SpectrogramToDB(top_db=cfg.top_db)(mel)
             mel = mel.squeeze().permute(1, 0)
             if cfg.standardize: mel = standardize(mel)
-            mel = mel.expand(3,-1,-1)
+                
+            if cfg.delta: mel = torch.stack([mel, torchdelta(mel), torchdelta(mel, order=2)]) 
+            else: mel = mel.expand(3,-1,-1)
             if cfg.cache:
                 os.makedirs(image_path.parent, exist_ok=True)
                 torch.save(mel, image_path)

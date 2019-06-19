@@ -52,6 +52,7 @@ class AudioTransformConfig:
     standardize: bool = False
     sg_cfg = SpectrogramConfig()
     mfcc: bool = False
+    n_mfcc: int = 20
     delta: bool = False
     
 def get_cache(config, cache_type, hash_params):
@@ -165,7 +166,7 @@ class AudioList(ItemList):
         cfg = self.config
         if cfg.use_spectro:
             cache_dir = self.path / cfg.cache_dir
-            s = md5(str(asdict(cfg)) + str(p))
+            s = md5(str(asdict(cfg)+str(asdict(cfg.sg_cfg)) + str(p))
             image_path = cache_dir/(f"{s}.pt")
             if cfg.cache and not cfg.force_cache and image_path.exists():
                 mel = torch.load(image_path).squeeze()
@@ -179,7 +180,7 @@ class AudioList(ItemList):
 
         mel = None
         if cfg.use_spectro:
-            if cfg.mfcc: mel = MFCC(sr=samplerate, n_mfcc=20, melkwargs=asdict(cfg.sg_cfg))(signal.reshape(1,-1))
+            if cfg.mfcc: mel = MFCC(sr=samplerate, n_mfcc=cfg.n_mfcc, melkwargs=asdict(cfg.sg_cfg))(signal.reshape(1,-1))
             else:
                 mel = MelSpectrogram(**asdict(cfg.sg_cfg))(signal.reshape(1, -1))
                 if cfg.to_db_scale: mel = SpectrogramToDB(top_db=cfg.top_db)(mel)

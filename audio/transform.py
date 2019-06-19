@@ -32,8 +32,11 @@ def standardize(mel, mean=None, std=None, norm_max=None, norm_min=None, eps=1e-6
     else: V = torch.zeros_like(mel_std)    
     return V
 
-def torchdelta(mel, order=1):
-    return torch.from_numpy(librosa.feature.delta(mel.numpy(), order=order))
+def torchdelta(mel, order=1, width=9):
+    if(mel.shape[1] < width): 
+        raise ValueError(f'''Delta not possible with current settings, inputs must be wider than 
+        {width} columns, try setting max_to_pad to a larger value to ensure a minimum width''')
+    return torch.from_numpy(librosa.feature.delta(mel.numpy(), order=order, width=9))
 
 def tfm_sg_roll(spectro, max_shift_pct=0.7, direction=0, **kwargs):
     '''Shifts spectrogram along x-axis wrapping around to other side'''
@@ -103,7 +106,7 @@ def tfm_chop_silence(signal, rate, threshold=20, pad_ms=200):
     padding = int(pad_ms/1000*rate)
     if(padding > len(actual)): return [actual]
     splits = split(actual.numpy(), top_db=threshold, hop_length=padding)
-    return [actual[(max(a,0) - padding):(b + min(padding,len(actual)))] for (a, b) in splits]
+    return [actual[(max(a-padding,0)):(min(b+padding,len(actual)))] for (a, b) in splits]
 
 def tfm_resample(signal, sr, sr_new):
     '''Resample using faster polyphase technique and avoiding FFT computation'''

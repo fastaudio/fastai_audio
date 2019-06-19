@@ -182,8 +182,9 @@ class AudioList(ItemList):
 
         signal, samplerate = torchaudio.load(str(p))
 
-        if cfg.max_to_pad:
-            signal = PadTrim(max_len=int(cfg.max_to_pad/1000*samplerate))(signal)
+        if cfg.max_to_pad or cfg.segment_size:
+            pad_len = cfg.max_to_pad if cfg.max_to_pad is not None else cfg.segment_size
+            signal = PadTrim(max_len=int(pad_len/1000*samplerate))(signal)
 
         mel = None
         if cfg.use_spectro:

@@ -50,7 +50,7 @@ class AudioTransformConfig:
     max_to_pad: float = None
     resample_to: int = None
     standardize: bool = False
-    sg_cfg = SpectrogramConfig()
+    sg_cfg: SpectrogramConfig = SpectrogramConfig()
     mfcc: bool = False
     n_mfcc: int = 20
     delta: bool = False

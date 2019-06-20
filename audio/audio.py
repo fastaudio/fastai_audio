@@ -11,7 +11,7 @@ AUDIO_EXTENSIONS = tuple(str.lower(k) for k, v in mimetypes.types_map.items()
                          if v.startswith('audio/'))
 
 class AudioItem(ItemBase):
-    def __init__(self, sig=None, sr=None, path=None, spectro=None, max_to_pad=None):
+    def __init__(self, sig=None, sr=None, path=None, spectro=None, max_to_pad=None, sg_duration=None):
         '''Holds Audio signal and/or specrogram data'''
         if(isinstance(sig, np.ndarray)): sig = torch.from_numpy(sig).unsqueeze(0)
         self._sig, self._sr, self.path, self.spectro = sig, sr, path, spectro

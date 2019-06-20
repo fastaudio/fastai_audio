@@ -52,6 +52,19 @@ def tfm_sg_roll(spectro, max_shift_pct=0.7, direction=0, **kwargs):
     sg = sg.roll(roll_by, dims=2)
     return sg
 
+def tfm_sg_crop(spectro, crop_duration, sr, hop):
+    if sr is None: return spectro
+    sg = spectro.clone()
+    c, y, x = sg.shape
+    
+    total_duration = (hop*x)/sr
+    if crop_duration >= total_duration: return spectro
+    crop_width = int(x*crop_duration/total_duration)
+    
+    crop_start = random.randint(0, x-crop_width)
+    sg_crop = sg[:,:,crop_start:crop_start+crop_width]
+    return sg_crop
+
 def tfm_mask_time(spectro, tmasks=1, num_cols=20, start_col=None, tmask_value=None, **kwargs):
     '''Google SpecAugment time masking from https://arxiv.org/abs/1904.08779.'''
     sg = spectro.clone().squeeze(0)

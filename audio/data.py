@@ -24,13 +24,13 @@ class AudioDataBunch(DataBunch):
 @dataclass
 class SpectrogramConfig:
     '''Configuration for how Spectrograms are generated'''
-    n_fft: int = 1024
+    n_fft: int = 2560
     ws: int = None
-    hop: int = 72
+    hop: int = 512
     f_min: int = 0
     f_max: int = 8000
     pad: int = 0
-    n_mels: int = 224
+    n_mels: int = 128
     
 
 @dataclass
@@ -50,20 +50,26 @@ class AudioTransformConfig:
     max_to_pad: float = None
     resample_to: int = None
     standardize: bool = False
-    sg_cfg = SpectrogramConfig()
+    sg_cfg: SpectrogramConfig = SpectrogramConfig()
     mfcc: bool = False
+    n_mfcc: int = 20
     delta: bool = False
     
-def get_cache(config, cache_type, hash_params):
+def get_cache(config, cache_type, item_path, params):
     if not config.cache_dir: return None
-    hash_str = md5("".join(map(str, hash_params)))
-    mark = config.cache_dir / f"{cache_type}_{hash_str}"
+    details = "-".join(map(str, params))
+    top_level = config.cache_dir / f"{cache_type}_{details}"
+    subfolder = f"{item_path.name}-{md5(str(item_path))}"
+    #subfolder = f"{md5(str(item_path))}-{item_path.name}"
+    mark = top_level/subfolder
     files = get_files(mark) if mark.exists() else None
     return files
 
-def make_cache(sigs, sr, config, cache_type, hash_params):
-    hash_str = md5("".join(map(str, hash_params)))
-    mark = config.cache_dir / f"{cache_type}_{hash_str}"
+def make_cache(sigs, sr, config, cache_type, item_path, params):
+    details = "-".join(map(str, params))
+    top_level = config.cache_dir / f"{cache_type}_{details}"
+    subfolder = f"{item_path.name}-{md5(str(item_path))}"
+    mark = top_level/subfolder
     files = []
     if len(sigs) > 0:
         os.makedirs(mark, exist_ok=True)
@@ -78,36 +84,36 @@ def resample_item(item, config, path):
     item_path, label = item
     if not os.path.exists(item_path): item_path = path/item_path
     sr_new = config.resample_to
-    files = get_cache(config, "rs", [item_path, sr_new])
+    files = get_cache(config, "rs", item_path, [sr_new])
     if not files:
         sig, sr = torchaudio.load(item_path)
         sig = [tfm_resample(sig, sr, sr_new)]
-        files = make_cache(sig, sr_new, config, "rs", [item_path, sr_new])
+        files = make_cache(sig, sr_new, config, "rs", item_path, [sr_new])
     return list(zip(files, [label]*len(files)))
 
 def remove_silence(item, config, path):
     item_path, label = item
     if not os.path.exists(item_path): item_path = path/item_path
     st, sp = config.silence_threshold, config.silence_padding
-    files = get_cache(config, "sh", [item_path, st, sp])
+    files = get_cache(config, "sh", item_path, [st, sp])
     if not files:
         sig, sr = torchaudio.load(item_path)
         sigs = tfm_chop_silence(sig, sr, st, sp)
-        files = make_cache(sigs, sr, config, "sh", [item_path, st, sp])
+        files = make_cache(sigs, sr, config, "sh", item_path, [st, sp])
     return list(zip(files, [label]*len(files)))
 
 def segment_items(item, config, path):
     item_path, label = item
     if not os.path.exists(item_path): item_path = path/item_path
     sig, sr = torchaudio.load(item_path)
-    segsize = int(config.segment_size / 1000 * sr)
-    files = get_cache(config, "s", [item_path, segsize, label])
+    segsize = int(sr*config.segment_size/1000)
+    files = get_cache(config, "s", item_path, [config.segment_size])
     if not files:
         sig = sig.squeeze()
         sigs = []
-        for i in range(int(len(sig)/segsize) + 1):
-            sigs.append(sig[i*segsize: min((i+1)*segsize, len(sig))])
-        files = make_cache(sigs, sr, config, "s", [item_path, segsize, label])
+        for i in range((len(sig)//segsize) + 1):
+            sigs.append(sig[i*segsize:(i+1)*segsize])
+        files = make_cache(sigs, sr, config, "s", item_path, [config.segment_size])
     return list(zip(files, [label]*len(files)))
 
 class AudioLabelList(LabelList):
@@ -165,8 +171,9 @@ class AudioList(ItemList):
         cfg = self.config
         if cfg.use_spectro:
             cache_dir = self.path / cfg.cache_dir
-            s = md5(str(asdict(cfg)) + str(p))
-            image_path = cache_dir/(f"{s}.pt")
+            folder = md5(str(asdict(cfg))+str(asdict(cfg.sg_cfg)))
+            fname = f"{md5(str(p))}-{p.name}.pt"
+            image_path = cache_dir/(f"{folder}/{fname}")
             if cfg.cache and not cfg.force_cache and image_path.exists():
                 mel = torch.load(image_path).squeeze()
                 if cfg.standardize: mel = standardize(mel)
@@ -174,18 +181,18 @@ class AudioList(ItemList):
 
         signal, samplerate = torchaudio.load(str(p))
 
-        if cfg.max_to_pad:
-            signal = PadTrim(max_len=int(cfg.max_to_pad/1000*samplerate))(signal)
+        if cfg.max_to_pad or cfg.segment_size:
+            pad_len = cfg.max_to_pad if cfg.max_to_pad is not None else cfg.segment_size
+            signal = PadTrim(max_len=int(pad_len/1000*samplerate))(signal)
 
         mel = None
         if cfg.use_spectro:
-            if cfg.mfcc: mel = MFCC(sr=samplerate, n_mfcc=20, melkwargs=asdict(cfg.sg_cfg))(signal.reshape(1,-1))
+            if cfg.mfcc: mel = MFCC(sr=samplerate, n_mfcc=cfg.n_mfcc, melkwargs=asdict(cfg.sg_cfg))(signal.reshape(1,-1))
             else:
                 mel = MelSpectrogram(**asdict(cfg.sg_cfg))(signal.reshape(1, -1))
                 if cfg.to_db_scale: mel = SpectrogramToDB(top_db=cfg.top_db)(mel)
             mel = mel.squeeze().permute(1, 0)
             if cfg.standardize: mel = standardize(mel)
-                
             if cfg.delta: mel = torch.stack([mel, torchdelta(mel), torchdelta(mel, order=2)]) 
             else: mel = mel.expand(3,-1,-1)
             if cfg.cache:

@@ -94,7 +94,8 @@ def tfm_mask_frequency(spectro, fmasks=1, num_rows=30, start_row=None, fmask_val
         start_hori = None
     return sg
 
-def get_spectro_transforms(mask_time:bool=True,
+def get_spectro_transforms(cfg: AudioConfig,
+                           mask_time:bool=True,
                            mask_frequency:bool=True,
                            roll:bool=True,
                            xtra_tfms:Optional[Collection[Transform]]=None,

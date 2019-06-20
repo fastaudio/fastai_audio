@@ -34,7 +34,7 @@ class SpectrogramConfig:
     
 
 @dataclass
-class AudioTransformConfig:
+class AudioConfig:
     '''Options for pre-processing audio signals'''
     sg_duration: int = None
     remove_silence: bool = False
@@ -62,7 +62,6 @@ def get_cache(config, cache_type, item_path, params):
     details = "-".join(map(str, params))
     top_level = config.cache_dir / f"{cache_type}_{details}"
     subfolder = f"{item_path.name}-{md5(str(item_path))}"
-    #subfolder = f"{md5(str(item_path))}-{item_path.name}"
     mark = top_level/subfolder
     files = get_files(mark) if mark.exists() else None
     return files
@@ -71,7 +70,6 @@ def make_cache(sigs, sr, config, cache_type, item_path, params):
     details = "-".join(map(str, params))
     top_level = config.cache_dir / f"{cache_type}_{details}"
     subfolder = f"{item_path.name}-{md5(str(item_path))}"
-    #subfolder = f"{md5(str(item_path))}-{item_path.name}"
     mark = top_level/subfolder
     files = []
     if len(sigs) > 0:
@@ -161,9 +159,9 @@ class AudioLabelList(LabelList):
 
 class AudioList(ItemList):
     _bunch = AudioDataBunch
-    config: AudioTransformConfig
+    config: AudioConfig
 
-    def __init__(self, items, path, config=AudioTransformConfig(), **kwargs):
+    def __init__(self, items, path, config=AudioConfig(), **kwargs):
         super().__init__(items, path, **kwargs)
         self._label_list = AudioLabelList
         config.cache_dir = path / config.cache_dir

@@ -38,21 +38,8 @@ def torchdelta(mel, order=1, width=9):
         {width} columns, try setting max_to_pad to a larger value to ensure a minimum width''')
     return torch.from_numpy(librosa.feature.delta(mel.numpy(), order=order, width=9))
 
-def tfm_sg_roll(spectro, max_shift_pct=0.7, direction=0, **kwargs):
-    '''Shifts spectrogram along x-axis wrapping around to other side'''
-    if len(spectro.shape) < 2:
-        raise Exception('You are trying to apply the tranform to as signal')
-    if int(direction) not in [-1, 0, 1]: 
-        raise ValueError("Direction must be -1(left) 0(bidirectional) or 1(right)")
-    direction = random.choice([-1, 1]) if direction == 0 else direction
-    
-    sg = spectro.clone()
-    width = sg.shape[1]
-    roll_by = int(width*random.random()*max_shift_pct*direction)
-    sg = sg.roll(roll_by, dims=2)
-    return sg
-
 def tfm_sg_crop(spectro, crop_duration, sr, hop):
+    
     if sr is None: return spectro
     sg = spectro.clone()
     c, y, x = sg.shape
@@ -64,6 +51,20 @@ def tfm_sg_crop(spectro, crop_duration, sr, hop):
     crop_start = random.randint(0, x-crop_width)
     sg_crop = sg[:,:,crop_start:crop_start+crop_width]
     return sg_crop
+
+def tfm_sg_roll(spectro, max_shift_pct=0.7, direction=0, **kwargs):
+    '''Shifts spectrogram along x-axis wrapping around to other side'''
+    if len(spectro.shape) < 2:
+        raise Exception('Cannot apply spectrogram rolling to a signal')
+    if int(direction) not in [-1, 0, 1]: 
+        raise ValueError("Direction must be -1(left) 0(bidirectional) or 1(right)")
+    direction = random.choice([-1, 1]) if direction == 0 else direction
+    
+    sg = spectro.clone()
+    c, height, width = sg.shape
+    roll_by = int(width*random.random()*max_shift_pct*direction)
+    sg = sg.roll(roll_by, dims=2)
+    return sg
 
 def tfm_mask_time(spectro, tmasks=1, num_cols=20, start_col=None, tmask_value=None, **kwargs):
     '''Google SpecAugment time masking from https://arxiv.org/abs/1904.08779.'''

@@ -69,7 +69,6 @@ def make_cache(sigs, sr, config, cache_type, item_path, params):
     details = "-".join(map(str, params))
     top_level = config.cache_dir / f"{cache_type}_{details}"
     subfolder = f"{item_path.name}-{md5(str(item_path))}"
-    #subfolder = f"{md5(str(item_path))}-{item_path.name}"
     mark = top_level/subfolder
     files = []
     if len(sigs) > 0:

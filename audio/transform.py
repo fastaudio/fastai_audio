@@ -38,19 +38,28 @@ def torchdelta(mel, order=1, width=9):
         {width} columns, try setting max_to_pad to a larger value to ensure a minimum width''')
     return torch.from_numpy(librosa.feature.delta(mel.numpy(), order=order, width=9))
 
-def tfm_sg_crop(spectro, crop_duration, sr, hop):
-    
-    if sr is None: return spectro
+def tfm_crop_time(spectro, cfg):
+    sr, crop_duration, hop = cfg._sr, cfg.duration, cfg.sg_cfg.hop
+    if sr is None: return spectro, None, None
     sg = spectro.clone()
     c, y, x = sg.shape
     
     total_duration = (hop*x)/sr
-    if crop_duration >= total_duration: return spectro
-    crop_width = int(x*crop_duration/total_duration)
+    # instead of just returning the spectro here we need to extend it to be the same size as the others
+    # by padding 
+    # also we should change duration to be in ms instead of seconds for consistency
     
+    crop_width = int(sr*crop_duration/hop)
+    if crop_duration >= total_duration: 
+        padding = torch.zeros((c,y, crop_width-x))
+        sg_pad = torch.cat((sg, padding), 2)
+        return sg_pad, None, None
     crop_start = random.randint(0, x-crop_width)
+    
     sg_crop = sg[:,:,crop_start:crop_start+crop_width]
-    return sg_crop
+    start_sample = int(crop_start*hop)
+    end_sample = int(start_sample + crop_duration*sr)
+    return sg_crop, start_sample, end_sample
 
 def tfm_sg_roll(spectro, max_shift_pct=0.7, direction=0, **kwargs):
     '''Shifts spectrogram along x-axis wrapping around to other side'''
@@ -94,19 +103,24 @@ def tfm_mask_frequency(spectro, fmasks=1, num_rows=30, start_row=None, fmask_val
         start_hori = None
     return sg
 
-def get_spectro_transforms(cfg: AudioConfig,
+def get_spectro_transforms(cfg,
+                           crop_time: bool=False,
                            mask_time:bool=True,
                            mask_frequency:bool=True,
                            roll:bool=True,
                            xtra_tfms:Optional[Collection[Transform]]=None,
                          **kwargs)->Collection[Transform]:
     "Utility func to create a list of spectrogram transforms"
-    res = []
-    if mask_time: res.append(partial(tfm_mask_time, **kwargs))
-    if mask_frequency: res.append(partial(tfm_mask_frequency, **kwargs))
-    if roll: res.append(partial(tfm_sg_roll, **kwargs))
+    train = []
+    val = []
+    if crop_time:
+        train.append(partial(tfm_crop_time, cfg=cfg, **kwargs))
+        val.append(partial(tfm_crop_time, cfg=cfg, **kwargs))
+    if mask_time: train.append(partial(tfm_mask_time, **kwargs))
+    if mask_frequency: train.append(partial(tfm_mask_frequency, **kwargs))
+    if roll: train.append(partial(tfm_sg_roll, **kwargs))
     
-    return (res+listify(xtra_tfms), [])
+    return (train+listify(xtra_tfms), val)
 
 def tfm_trim_silence(signal, rate, threshold=20, pad_ms=200):
     '''Remove silence from start and end of audio'''

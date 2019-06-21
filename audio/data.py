@@ -36,7 +36,7 @@ class SpectrogramConfig:
 @dataclass
 class AudioConfig:
     '''Options for pre-processing audio signals'''
-    sg_duration: int = None
+    duration: int = None
     remove_silence: bool = False
     use_spectro: bool = True
     cache: bool = True
@@ -117,7 +117,8 @@ def segment_items(item, config, path):
         files = make_cache(sigs, sr, config, "s", item_path, [config.segment_size])
     return list(zip(files, [label]*len(files)))
 
-def _set_sr(item_path, config):
+def _set_sr(item_path, config, path):
+    if not os.path.exists(item_path): item_path = path/item_path
     sig, sr = torchaudio.load(item_path)
     config._sr = sr
 
@@ -126,7 +127,7 @@ class AudioLabelList(LabelList):
     def _pre_process(self):
         x, y = self.x, self.y
         cfg = x.config
-        if not cfg.resample_to: _set_sr(x.items[0], x.config)
+        if not cfg.resample_to: _set_sr(x.items[0], x.config, x.path)
         if len(x.items) > 0 and (cfg.remove_silence or cfg.segment_size or cfg.resample_to):
             items = list(zip(x.items, y.items))
 
@@ -183,8 +184,9 @@ class AudioList(ItemList):
             image_path = cache_dir/(f"{folder}/{fname}")
             if cfg.cache and not cfg.force_cache and image_path.exists():
                 mel = torch.load(image_path).squeeze()
-                if cfg.sg_duration: mel= tfm_sg_crop(mel, cfg.sg_duration, cfg._sr, cfg.sg_cfg.hop)
-                return AudioItem(spectro=mel, path=item, max_to_pad=cfg.max_to_pad)
+                start, end = None, None        
+                if cfg.duration: mel, start, end = tfm_crop_time(mel, cfg)
+                return AudioItem(spectro=mel, path=item, max_to_pad=cfg.max_to_pad, start=start, end=end)
 
         signal, samplerate = torchaudio.load(str(p))
         if(cfg._sr is not None and samplerate != cfg._sr):
@@ -210,8 +212,9 @@ class AudioList(ItemList):
             if cfg.cache:
                 os.makedirs(image_path.parent, exist_ok=True)
                 torch.save(mel, image_path)
-            if cfg.sg_duration: mel = tfm_sg_crop(mel, cfg.sg_duration, cfg._sr, cfg.sg_cfg.hop)
-        return AudioItem(sig=signal.squeeze(), sr=samplerate, spectro=mel, path=item)
+            start, end = None, None
+            if cfg.duration: mel, start, end = tfm_crop_time(mel, cfg)
+        return AudioItem(sig=signal.squeeze(), sr=samplerate, spectro=mel, path=item, start=start, end=end)
 
     def get(self, i):
         item = self.items[i]

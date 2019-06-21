@@ -11,11 +11,12 @@ AUDIO_EXTENSIONS = tuple(str.lower(k) for k, v in mimetypes.types_map.items()
                          if v.startswith('audio/'))
 
 class AudioItem(ItemBase):
-    def __init__(self, sig=None, sr=None, path=None, spectro=None, max_to_pad=None, sg_duration=None):
+    def __init__(self, sig=None, sr=None, path=None, spectro=None, max_to_pad=None, start=None, end=None):
         '''Holds Audio signal and/or specrogram data'''
         if(isinstance(sig, np.ndarray)): sig = torch.from_numpy(sig).unsqueeze(0)
         self._sig, self._sr, self.path, self.spectro = sig, sr, path, spectro
         self.max_to_pad = max_to_pad
+        self.start, self.end = start, end
 
     def __str__(self):
         return f'{self.__class__.__name__} {round(self.duration, 2)} seconds ({self.sig.shape[0]} samples @ {self.sr}hz)'
@@ -57,7 +58,10 @@ class AudioItem(ItemBase):
     def shape(self): return self.data.shape
 
     def _reload_signal(self):
-        sig, sr = torchaudio.load(self.path)
+        if self.start is not None and self.end is not None: 
+            sig, sr = torchaudio.load(self.path, offset=self.start, num_frames=self.end-self.start)
+        else:
+            sig, sr = torchaudio.load(self.path)
         if self.max_to_pad is not None:
             sig = PadTrim(max_len=int(self.max_to_pad/1000*sr))(sig)
         self._sr = sr

@@ -17,6 +17,7 @@ from scipy.signal import resample_poly
 #Code altered from a kaggle kernel shared by @daisukelab, scales a spectrogram
 #to be floats between 0 and 1 as this is how most 3 channel images are handled
 def standardize(mel, mean=None, std=None, norm_max=None, norm_min=None, eps=1e-6):
+    '''Scales spectrogram array to be values on scale [0, 1]'''
     mean = mean or mel.mean()
     std = std or mel.std()
     mel_std = (mel - mean) / (std + eps)
@@ -33,65 +34,86 @@ def standardize(mel, mean=None, std=None, norm_max=None, norm_min=None, eps=1e-6
     return V
 
 def torchdelta(mel, order=1, width=9):
+    '''Converts to numpy, takes delta and converts back to torch, needs torchification'''
     if(mel.shape[1] < width): 
         raise ValueError(f'''Delta not possible with current settings, inputs must be wider than 
         {width} columns, try setting max_to_pad to a larger value to ensure a minimum width''')
     return torch.from_numpy(librosa.feature.delta(mel.numpy(), order=order, width=9))
 
+def tfm_crop_time(spectro, sr, crop_duration, hop):
+    '''Random crops full spectrogram to be length specified in ms by crop_duration'''
+    crop_duration /= 1000
+    sg = spectro.clone()
+    c, y, x = sg.shape
+    total_duration = (hop*x)/sr
+    crop_width = int(sr*(crop_duration)/hop)
+    #if crop_duration is longer than total clip, pad with zeros to crop_duration and return
+    if crop_duration >= total_duration: 
+        padding = torch.zeros((c,y, crop_width-x))
+        sg_pad = torch.cat((sg, padding), 2)
+        return sg_pad, None, None
+    crop_start = random.randint(0, x-crop_width)
+    sg_crop = sg[:,:,crop_start:crop_start+crop_width]
+    start_sample = int(crop_start*hop)
+    end_sample = int(start_sample + crop_duration*sr)
+    return sg_crop, start_sample, end_sample
+
 def tfm_sg_roll(spectro, max_shift_pct=0.7, direction=0, **kwargs):
     '''Shifts spectrogram along x-axis wrapping around to other side'''
     if len(spectro.shape) < 2:
-        raise Exception('You are trying to apply the tranform to as signal')
+        raise Exception('Cannot apply spectrogram rolling to a signal')
     if int(direction) not in [-1, 0, 1]: 
         raise ValueError("Direction must be -1(left) 0(bidirectional) or 1(right)")
     direction = random.choice([-1, 1]) if direction == 0 else direction
     
     sg = spectro.clone()
-    width = sg.shape[1]
+    c, height, width = sg.shape
     roll_by = int(width*random.random()*max_shift_pct*direction)
     sg = sg.roll(roll_by, dims=2)
     return sg
 
 def tfm_mask_time(spectro, tmasks=1, num_cols=20, start_col=None, tmask_value=None, **kwargs):
     '''Google SpecAugment time masking from https://arxiv.org/abs/1904.08779.'''
-    sg = spectro.clone().squeeze(0)
+    sg = spectro.clone()
     mask_value = sg.mean() if tmask_value is None else tmask_value
-    x, y = sg.shape
+    c, y, x  = sg.shape
     for _ in range(tmasks):
-        mask = torch.ones(x, num_cols) * mask_value
-        if start_col is None: start_col = random.randint(0, y-num_cols)
-        if not 0 <= start_col <= y-num_cols: 
+        mask = torch.ones(y, num_cols) * mask_value
+        if start_col is None: start_col = random.randint(0, x-num_cols)
+        if not 0 <= start_col <= x-num_cols: 
             raise ValueError(f"start_col value '{start_col}' out of range for sg of shape {sg.shape}")
-        sg[:,start_col:start_col+num_cols] = mask
+        sg[:,:,start_col:start_col+num_cols] = mask
         start_col = None
-    return sg.unsqueeze(0)
+    return sg
 
 def tfm_mask_frequency(spectro, fmasks=1, num_rows=30, start_row=None, fmask_value=None, **kwargs):
     '''Google SpecAugment frequency masking from https://arxiv.org/abs/1904.08779.'''
-    sg = spectro.clone().squeeze(0)
+    sg = spectro.clone()
     mask_value = sg.mean() if fmask_value is None else fmask_value
-    x, y = sg.shape
+    c, y, x = sg.shape
     for _ in range(fmasks):
-        mask = torch.ones(num_rows, y) * mask_value
-        if start_row is None: start_row = random.randint(0, x-num_rows)
-        if not 0 <= start_row <= x-num_rows: 
+        mask = torch.ones(num_rows, x) * mask_value
+        if start_row is None: start_row = random.randint(0, y-num_rows)
+        if not 0 <= start_row <= y-num_rows: 
             raise ValueError(f"start_row value '{start_row}' out of range for sg of shape {sg.shape}")
-        sg[start_row:start_row+num_rows,:] = mask
+        sg[:,start_row:start_row+num_rows,:] = mask
         start_hori = None
-    return sg.unsqueeze(0)
+    return sg
 
-def get_spectro_transforms(mask_time:bool=True,
+def get_spectro_transforms(crop_time: bool=False,
+                           mask_time:bool=True,
                            mask_frequency:bool=True,
                            roll:bool=True,
                            xtra_tfms:Optional[Collection[Transform]]=None,
                          **kwargs)->Collection[Transform]:
     "Utility func to create a list of spectrogram transforms"
-    res = []
-    if mask_time: res.append(partial(tfm_mask_time, **kwargs))
-    if mask_frequency: res.append(partial(tfm_mask_frequency, **kwargs))
-    if roll: res.append(partial(tfm_sg_roll, **kwargs))
+    train = []
+    val = []
+    if mask_time: train.append(partial(tfm_mask_time, **kwargs))
+    if mask_frequency: train.append(partial(tfm_mask_frequency, **kwargs))
+    if roll: train.append(partial(tfm_sg_roll, **kwargs))
     
-    return (res+listify(xtra_tfms), [])
+    return (train+listify(xtra_tfms), val)
 
 def tfm_trim_silence(signal, rate, threshold=20, pad_ms=200):
     '''Remove silence from start and end of audio'''

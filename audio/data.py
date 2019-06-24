@@ -34,8 +34,9 @@ class SpectrogramConfig:
     
 
 @dataclass
-class AudioTransformConfig:
+class AudioConfig:
     '''Options for pre-processing audio signals'''
+    duration: int = None
     remove_silence: bool = False
     use_spectro: bool = True
     cache: bool = True
@@ -54,13 +55,13 @@ class AudioTransformConfig:
     mfcc: bool = False
     n_mfcc: int = 20
     delta: bool = False
+    _sr = None
     
 def get_cache(config, cache_type, item_path, params):
     if not config.cache_dir: return None
     details = "-".join(map(str, params))
     top_level = config.cache_dir / f"{cache_type}_{details}"
     subfolder = f"{item_path.name}-{md5(str(item_path))}"
-    #subfolder = f"{md5(str(item_path))}-{item_path.name}"
     mark = top_level/subfolder
     files = get_files(mark) if mark.exists() else None
     return files
@@ -116,11 +117,17 @@ def segment_items(item, config, path):
         files = make_cache(sigs, sr, config, "s", item_path, [config.segment_size])
     return list(zip(files, [label]*len(files)))
 
+def _set_sr(item_path, config, path):
+    if not os.path.exists(item_path): item_path = path/item_path
+    sig, sr = torchaudio.load(item_path)
+    config._sr = sr
+
 class AudioLabelList(LabelList):
 
     def _pre_process(self):
         x, y = self.x, self.y
         cfg = x.config
+        if not cfg.resample_to: _set_sr(x.items[0], x.config, x.path)
         if len(x.items) > 0 and (cfg.remove_silence or cfg.segment_size or cfg.resample_to):
             items = list(zip(x.items, y.items))
 
@@ -128,6 +135,7 @@ class AudioLabelList(LabelList):
                 (x, y)) if len(y) > 0 else x
             
             if x.config.resample_to:
+                cfg._sr = x.config.resample_to
                 items = [resample_item(i, x.config, x.path) for i in items]
                 items = reduce(concat, items, np.empty((0, 2)))
 
@@ -141,20 +149,20 @@ class AudioLabelList(LabelList):
 
             nx, ny = tuple(zip(*items))
             x.items, y.items = np.array(nx), np.array(ny)
-
+ 
         self.x, self.y = x, y
         self.y.x = x
-
+   
     def process(self, *args, **kwargs):
         self._pre_process()
         super().process(*args, **kwargs)
-
+        self.x.config.processed = True
 
 class AudioList(ItemList):
     _bunch = AudioDataBunch
-    config: AudioTransformConfig
+    config: AudioConfig
 
-    def __init__(self, items, path, config=AudioTransformConfig(), **kwargs):
+    def __init__(self, items, path, config=AudioConfig(), **kwargs):
         super().__init__(items, path, **kwargs)
         self._label_list = AudioLabelList
         config.cache_dir = path / config.cache_dir
@@ -176,10 +184,17 @@ class AudioList(ItemList):
             image_path = cache_dir/(f"{folder}/{fname}")
             if cfg.cache and not cfg.force_cache and image_path.exists():
                 mel = torch.load(image_path).squeeze()
-                if cfg.standardize: mel = standardize(mel)
-                return AudioItem(spectro=mel, path=item, max_to_pad=cfg.max_to_pad)
+                start, end = None, None
+                if cfg.duration and cfg.processed:
+                    mel, start, end = tfm_crop_time(mel, cfg._sr, cfg.duration, cfg.sg_cfg.hop)
+                return AudioItem(spectro=mel, path=item, max_to_pad=cfg.max_to_pad, start=start, end=end)
 
         signal, samplerate = torchaudio.load(str(p))
+        if(cfg._sr is not None and samplerate != cfg._sr):
+            raise ValueError(f'''Multiple sample rates detected. Sample rate {samplerate} of file {str(p)} 
+                                does not match config sample rate {cfg._sr} 
+                                this means your dataset has multiple different sample rates, 
+                                please choose one and set resample_to to that value''')
 
         if cfg.max_to_pad or cfg.segment_size:
             pad_len = cfg.max_to_pad if cfg.max_to_pad is not None else cfg.segment_size
@@ -198,8 +213,10 @@ class AudioList(ItemList):
             if cfg.cache:
                 os.makedirs(image_path.parent, exist_ok=True)
                 torch.save(mel, image_path)
-
-        return AudioItem(sig=signal.squeeze(), sr=samplerate, spectro=mel, path=item)
+            start, end = None, None
+            if cfg.duration and cfg.processed: 
+                mel, start, end = tfm_crop_time(mel, cfg._sr, cfg.duration, cfg.sg_cfg.hop)
+        return AudioItem(sig=signal.squeeze(), sr=samplerate, spectro=mel, path=item, start=start, end=end)
 
     def get(self, i):
         item = self.items[i]

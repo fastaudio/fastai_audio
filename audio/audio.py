@@ -11,11 +11,12 @@ AUDIO_EXTENSIONS = tuple(str.lower(k) for k, v in mimetypes.types_map.items()
                          if v.startswith('audio/'))
 
 class AudioItem(ItemBase):
-    def __init__(self, sig=None, sr=None, path=None, spectro=None, max_to_pad=None):
+    def __init__(self, sig=None, sr=None, path=None, spectro=None, max_to_pad=None, start=None, end=None):
         '''Holds Audio signal and/or specrogram data'''
         if(isinstance(sig, np.ndarray)): sig = torch.from_numpy(sig).unsqueeze(0)
         self._sig, self._sr, self.path, self.spectro = sig, sr, path, spectro
         self.max_to_pad = max_to_pad
+        self.start, self.end = start, end
 
     def __str__(self):
         return f'{self.__class__.__name__} {round(self.duration, 2)} seconds ({self.sig.shape[0]} samples @ {self.sr}hz)'
@@ -34,7 +35,9 @@ class AudioItem(ItemBase):
             return AudioItem(item)
 
     def show(self, title: [str] = None, **kwargs):
+        print(f"File: {self.path}")
         self.hear(title=title)
+        
         sg = self.spectro
         if sg is not None: 
             if torch.all(torch.eq(sg[0], sg[1])) and torch.all(torch.eq(sg[0], sg[2])):
@@ -46,7 +49,15 @@ class AudioItem(ItemBase):
 
     def hear(self, title=None):
         if title is not None: print(title)
-        display(self.ipy_audio)
+        
+        if self.start is not None or self.end is not None:
+            print(f"{round(self.start/self.sr, 2)}s-{round(self.end/self.sr,2)}s of original clip")
+            start = 0 if self.start is None else self.start
+            end = len(self.sig)-1 if self.end is None else self.end
+            display(Audio(data=self.sig[start:end], rate=self.sr))
+        else:
+            display(self.ipy_audio)
+        
 
     def apply_tfms(self, tfms):
         for tfm in tfms:

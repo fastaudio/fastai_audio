@@ -24,38 +24,47 @@ class AudioDataBunch(DataBunch):
 @dataclass
 class SpectrogramConfig:
     '''Configuration for how Spectrograms are generated'''
-    n_fft: int = 2560
-    ws: int = None
-    hop: int = 512
     f_min: int = 0
     f_max: int = 8000
-    pad: int = 0
+    hop: int = 512
+    n_fft: int = 2560
     n_mels: int = 128
+    pad: int = 0
+    ws: int = None
     
-
 @dataclass
 class AudioConfig:
     '''Options for pre-processing audio signals'''
-    duration: int = None
-    remove_silence: bool = False
-    use_spectro: bool = True
     cache: bool = True
     cache_dir = Path('.cache')
     force_cache = False
-    to_db_scale = True
-    silence_padding: int = 200
-    top_db: int = 80
-    processed = False
-    segment_size: int = None
-    silence_threshold: int = 20
+    
+    duration: int = None
     max_to_pad: float = None
-    resample_to: int = None
-    standardize: bool = False
-    sg_cfg: SpectrogramConfig = SpectrogramConfig()
+    
+    remove_silence: bool = False
+    
+    use_spectro: bool = True
     mfcc: bool = False
     n_mfcc: int = 20
     delta: bool = False
+    
+    to_db_scale = True
+    top_db: int = 80
+        
+    silence_padding: int = 200
+    silence_threshold: int = 20
+    
+    
+    segment_size: int = None
+    
+    
+    resample_to: int = None
+    standardize: bool = False
+  
+    _processed = False
     _sr = None
+    sg_cfg: SpectrogramConfig = SpectrogramConfig()
     
 def get_cache(config, cache_type, item_path, params):
     if not config.cache_dir: return None
@@ -156,7 +165,7 @@ class AudioLabelList(LabelList):
     def process(self, *args, **kwargs):
         self._pre_process()
         super().process(*args, **kwargs)
-        self.x.config.processed = True
+        self.x.config._processed = True
 
 class AudioList(ItemList):
     _bunch = AudioDataBunch
@@ -185,7 +194,7 @@ class AudioList(ItemList):
             if cfg.cache and not cfg.force_cache and image_path.exists():
                 mel = torch.load(image_path).squeeze()
                 start, end = None, None
-                if cfg.duration and cfg.processed:
+                if cfg.duration and cfg._processed:
                     mel, start, end = tfm_crop_time(mel, cfg._sr, cfg.duration, cfg.sg_cfg.hop)
                 return AudioItem(spectro=mel, path=item, max_to_pad=cfg.max_to_pad, start=start, end=end)
 
@@ -214,7 +223,7 @@ class AudioList(ItemList):
                 os.makedirs(image_path.parent, exist_ok=True)
                 torch.save(mel, image_path)
             start, end = None, None
-            if cfg.duration and cfg.processed: 
+            if cfg.duration and cfg._processed: 
                 mel, start, end = tfm_crop_time(mel, cfg._sr, cfg.duration, cfg.sg_cfg.hop)
         return AudioItem(sig=signal.squeeze(), sr=samplerate, spectro=mel, path=item, start=start, end=end)
 

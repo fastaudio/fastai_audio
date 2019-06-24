@@ -30,8 +30,14 @@ class SpectrogramConfig:
     n_fft: int = 2560
     n_mels: int = 128
     pad: int = 0
+    to_db_scale: bool = True
+    top_db: int = 100
     ws: int = None
-    
+    n_mfcc: int = 20
+    def mel_args(self):
+        return {k:v for k, v in asdict(self).items() if k in ["f_min", "f_max", "hop", "n_fft", 
+                                                      "n_mels", "pad", "ws"]}
+        
 @dataclass
 class AudioConfig:
     '''Options for pre-processing audio signals'''
@@ -41,27 +47,16 @@ class AudioConfig:
     
     duration: int = None
     max_to_pad: float = None
-    
     remove_silence: bool = False
-    
     use_spectro: bool = True
     mfcc: bool = False
-    n_mfcc: int = 20
-    delta: bool = False
     
-    to_db_scale = True
-    top_db: int = 80
-        
+    delta: bool = False
     silence_padding: int = 200
     silence_threshold: int = 20
-    
-    
     segment_size: int = None
-    
-    
     resample_to: int = None
     standardize: bool = False
-  
     _processed = False
     _sr = None
     sg_cfg: SpectrogramConfig = SpectrogramConfig()
@@ -211,10 +206,10 @@ class AudioList(ItemList):
 
         mel = None
         if cfg.use_spectro:
-            if cfg.mfcc: mel = MFCC(sr=samplerate, n_mfcc=cfg.n_mfcc, melkwargs=asdict(cfg.sg_cfg))(signal.reshape(1,-1))
+            if cfg.mfcc: mel = MFCC(sr=samplerate, n_mfcc=cfg.sg_cfg.n_mfcc, melkwargs=asdict(cfg.sg_cfg))(signal.reshape(1,-1))
             else:
-                mel = MelSpectrogram(**asdict(cfg.sg_cfg))(signal.reshape(1, -1))
-                if cfg.to_db_scale: mel = SpectrogramToDB(top_db=cfg.top_db)(mel)
+                mel = MelSpectrogram(**(cfg.sg_cfg.mel_args()))(signal.reshape(1, -1))
+                if cfg.sg_cfg.to_db_scale: mel = SpectrogramToDB(top_db=cfg.sg_cfg.top_db)(mel)
             mel = mel.squeeze().permute(1, 0)
             if cfg.standardize: mel = standardize(mel)
             if cfg.delta: mel = torch.stack([mel, torchdelta(mel), torchdelta(mel, order=2)]) 

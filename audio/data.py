@@ -149,14 +149,14 @@ class AudioLabelList(LabelList):
 
             nx, ny = tuple(zip(*items))
             x.items, y.items = np.array(nx), np.array(ny)
-
+ 
         self.x, self.y = x, y
         self.y.x = x
-
+   
     def process(self, *args, **kwargs):
         self._pre_process()
         super().process(*args, **kwargs)
-
+        self.x.config.processed = True
 
 class AudioList(ItemList):
     _bunch = AudioDataBunch
@@ -184,8 +184,9 @@ class AudioList(ItemList):
             image_path = cache_dir/(f"{folder}/{fname}")
             if cfg.cache and not cfg.force_cache and image_path.exists():
                 mel = torch.load(image_path).squeeze()
-                start, end = None, None        
-                if cfg.duration: mel, start, end = tfm_crop_time(mel, cfg)
+                start, end = None, None
+                if cfg.duration and cfg.processed:
+                    mel, start, end = tfm_crop_time(mel, cfg._sr, cfg.duration, cfg.sg_cfg.hop)
                 return AudioItem(spectro=mel, path=item, max_to_pad=cfg.max_to_pad, start=start, end=end)
 
         signal, samplerate = torchaudio.load(str(p))
@@ -213,7 +214,8 @@ class AudioList(ItemList):
                 os.makedirs(image_path.parent, exist_ok=True)
                 torch.save(mel, image_path)
             start, end = None, None
-            if cfg.duration: mel, start, end = tfm_crop_time(mel, cfg)
+            if cfg.duration and cfg.processed: 
+                mel, start, end = tfm_crop_time(mel, cfg._sr, cfg.duration, cfg.sg_cfg.hop)
         return AudioItem(sig=signal.squeeze(), sr=samplerate, spectro=mel, path=item, start=start, end=end)
 
     def get(self, i):

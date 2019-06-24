@@ -13,4 +13,7 @@ def audio_predict(learn, item:AudioItem):
     al = AudioList([item], path, config=config).split_none().label_empty()
     res = torch.tensor([learn.predict(ai)[1] for ai in al.x])
     return learn.data.y.classes[torch.max(res)]
+
+def window_predict(learn, item:AudioItem, cfg, hop):
+    display(item.spectro)
     

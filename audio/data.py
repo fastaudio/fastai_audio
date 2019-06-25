@@ -1,9 +1,10 @@
 from pathlib import Path as PosixPath
 from IPython.core.debugger import set_trace
 import os
+from collections import Counter
 from dataclasses import dataclass, asdict
 import hashlib
-
+import matplotlib as plt
 from fastai.vision import *
 import torchaudio
 from torchaudio.transforms import MelSpectrogram, SpectrogramToDB, MFCC
@@ -231,7 +232,33 @@ class AudioList(ItemList):
         if isinstance(item, (PosixPath, Path, str)):
             return self.open(self.path/item)
 
-        raise Exception("Can't handle that type")
+        raise Exception("Can't handle that type")     
+        
+    def stats(self, prec=0):
+        '''Displays sample rate information and a plot of file lengths of the AudioList'''
+        lens, rates = [], []
+        for item in self:
+            si, ei = torchaudio.info(str(item.path))
+            lens.append(si.length/si.rate)
+            rates.append(si.rate)
+        print("Sample Rates: ")
+        for sr,count in Counter(rates).items(): print(f"{int(sr)}: {count} files")
+        self._plot_lengths(lens, prec)
+    
+    def _plot_lengths(self, lens, prec):
+        '''Plots a list of file lengths displaying prec digits of precision'''
+        rounded = [round(i, prec) for i in lens]
+        rounded_count = Counter(rounded)
+        plt.figure(num=None, figsize=(15, 5), dpi=80, facecolor='w', edgecolor='k')
+        labels = sorted(rounded_count.keys())
+        values = [rounded_count[i] for i in labels]
+        width = 1
+        plt.bar(labels, values, width)
+        xticks = np.linspace(int(min(rounded)), int(max(rounded))+1, 20)
+        plt.xticks(xticks)
+        plt.show()
+   
+    
 
     @classmethod
     def from_folder(cls, path: PathOrStr = '.', extensions: Collection[str] = None, recurse: bool = True, **kwargs) -> ItemList:

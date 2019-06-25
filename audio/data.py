@@ -19,8 +19,8 @@ class AudioDataBunch(DataBunch):
         batch = self.dl(ds_type).dataset[:rows]
         prev = None
         for x, y in batch:
-            print(y)
-            x.show()
+            print('-'*60)
+            x.show(title=y)
 
 @dataclass
 class SpectrogramConfig:
@@ -254,7 +254,7 @@ class AudioList(ItemList):
         values = [rounded_count[i] for i in labels]
         width = 1
         plt.bar(labels, values, width)
-        xticks = np.linspace(int(min(rounded)), int(max(rounded))+1, 20)
+        xticks = np.linspace(int(min(rounded)), int(max(rounded))+1, 10)
         plt.xticks(xticks)
         plt.show()
    

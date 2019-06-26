@@ -97,11 +97,10 @@ def tfm_mask_frequency(spectro, fmasks=1, num_rows=30, start_row=None, fmask_val
         if not 0 <= start_row <= y-num_rows: 
             raise ValueError(f"start_row value '{start_row}' out of range for sg of shape {sg.shape}")
         sg[:,start_row:start_row+num_rows,:] = mask
-        start_hori = None
+        start_row = None
     return sg
 
-def get_spectro_transforms(crop_time: bool=False,
-                           mask_time:bool=True,
+def get_spectro_transforms(mask_time:bool=True,
                            mask_frequency:bool=True,
                            roll:bool=True,
                            xtra_tfms:Optional[Collection[Transform]]=None,

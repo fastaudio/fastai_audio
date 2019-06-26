@@ -1,9 +1,8 @@
 import pytest
 from fastai.gen_doc.doctest import this_tests
-from fastai.vision import *
+from os.path import abspath, dirname, join
 import sys
-import random
-sys.path.append('..')
+sys.path.insert(1, abspath(dirname(dirname(__file__))))
 from audio import *
 
 @pytest.fixture(scope="module")
@@ -24,12 +23,12 @@ def random_item(path):
 def test_path_can_be_str_type(path):
     #this_tests(AudioList.from_folder)
     assert AudioList.from_folder(str(path))
-    
+
 def test_cache_resample(random_item):
     #this_tests(resample_item)
     rs = 8000
     p = random_item.path
-    config = AudioTransformConfig(cache=True, resample_to=rs)
+    config = AudioConfig(cache=True, resample_to=rs)
     item = (p, "Label Not Important")
     path_resample = config.cache_dir / f"sh_{md5(str(p)+str(rs))}"
     if os.path.exists(path_resample): os.remove(path_resample)
@@ -39,12 +38,12 @@ def test_cache_resample(random_item):
         assert os.path.exists(f)
         assert os.path.isfile(f)
         assert torchaudio.load(f)
-    
+
 def test_cache_silence(random_item):
     #this_tests(remove_silence)
     st, sp = 20, 200
     p = random_item.path
-    config = AudioTransformConfig(cache=True, silence_threshold=st, silence_padding=sp)
+    config = AudioConfig(cache=True, silence_threshold=st, silence_padding=sp)
     item = (p, "Label Not Important")
     path_silence = config.cache_dir / f"sh_{md5(str(p)+str(st)+str(sp))}"
     files = remove_silence(item, config, p)
@@ -52,12 +51,12 @@ def test_cache_silence(random_item):
         assert os.path.exists(f)
         assert os.path.isfile(f)
         assert torchaudio.load(f)
-        
+
 def test_cache_segment(random_item):
     #this_tests(segment_items)
     segsize = 500
     p = random_item.path
-    config = AudioTransformConfig(cache=True, segment_size=segsize)
+    config = AudioConfig(cache=True, segment_size=segsize)
     label = "Label Not Important"
     item = (p, label)
     path_segment = config.cache_dir / f"s_{md5(str(p)+str(segsize)+str(label))}"
@@ -66,6 +65,17 @@ def test_cache_segment(random_item):
         assert os.path.exists(f)
         assert os.path.isfile(f)
         assert torchaudio.load(f)
-        
-        
-#def test_cache_read(path):
+
+def test_can_open():
+    p = Path('data/Right_whale.wav')
+    AudioItem.open(p)
+
+
+def test_can_from_folder():
+    al = AudioList.from_folder('data')
+    assert len(al) == 1
+
+def test_can_from_df():
+        df = pd.DataFrame(['Right_whale.wav']*2)
+        al = AudioList.from_df(df, 'data')
+        assert len(al) == 2

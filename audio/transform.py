@@ -75,30 +75,30 @@ def tfm_sg_roll(spectro, max_shift_pct=0.7, direction=0, **kwargs):
 def tfm_mask_time(spectro, tmasks=1, num_cols=20, start_col=None, tmask_value=None, **kwargs):
     '''Google SpecAugment time masking from https://arxiv.org/abs/1904.08779.'''
     sg = spectro.clone()
+    channel_mean = sg.contiguous().view(sg.size(0), -1).mean(-1).unsqueeze(-1).unsqueeze(-1)
     c, y, x  = sg.shape
+    mask_value = channel_mean if tmask_value is None else tmask_value
     for _ in range(tmasks):
-        for chan in range(c):
-            mask_value = sg[chan].mean() if tmask_value is None else tmask_value
-            mask = torch.ones(y, num_cols) * mask_value
-            if start_col is None: start_col = random.randint(0, x-num_cols)
-            if not 0 <= start_col <= x-num_cols: 
-                raise ValueError(f"start_col value '{start_col}' out of range for sg of shape {sg.shape}")
-            sg[chan:,:,start_col:start_col+num_cols] = mask
+        mask = torch.ones(y, num_cols)* mask_value
+        if start_col is None: start_col = random.randint(0, x-num_cols)
+        if not 0 <= start_col <= x-num_cols: 
+            raise ValueError(f"start_col value '{start_col}' out of range for sg of shape {sg.shape}")
+        sg[:,:,start_col:start_col+num_cols] = mask
         start_col = None
     return sg
 
 def tfm_mask_frequency(spectro, fmasks=1, num_rows=30, start_row=None, fmask_value=None, **kwargs):
     '''Google SpecAugment frequency masking from https://arxiv.org/abs/1904.08779.'''
     sg = spectro.clone()
+    channel_mean = sg.contiguous().view(sg.size(0), -1).mean(-1).unsqueeze(-1).unsqueeze(-1)
     c, y, x = sg.shape
+    mask_value = channel_mean if fmask_value is None else fmask_value
     for _ in range(fmasks):
-        for chan in range(c):
-            mask_value = sg[chan].mean() if fmask_value is None else fmask_value
-            mask = torch.ones(num_rows, x) * mask_value
-            if start_row is None: start_row = random.randint(0, y-num_rows)
-            if not 0 <= start_row <= y-num_rows: 
-                raise ValueError(f"start_row value '{start_row}' out of range for sg of shape {sg.shape}")
-            sg[chan:,start_row:start_row+num_rows,:] = mask
+        mask = torch.ones(num_rows, x) * mask_value
+        if start_row is None: start_row = random.randint(0, y-num_rows)
+        if not 0 <= start_row <= y-num_rows: 
+            raise ValueError(f"start_row value '{start_row}' out of range for sg of shape {sg.shape}")
+        sg[:,start_row:start_row+num_rows,:] = mask
         start_row = None
     return sg
 

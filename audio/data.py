@@ -7,6 +7,7 @@ import hashlib
 import matplotlib as plt
 from fastai.vision import *
 import torchaudio
+import warnings
 from torchaudio.transforms import MelSpectrogram, SpectrogramToDB, MFCC
 from .audio import *
 from .transform import *
@@ -61,6 +62,11 @@ class AudioConfig:
     _processed = False
     _sr = None
     sg_cfg: SpectrogramConfig = SpectrogramConfig()
+        
+    def __setattr__(self, name, value):
+        if name in 'duration max_to_pad segment_size silence_padding'.split():
+            if value is not None and value <= 30:
+                warnings.warn(f"{name} should be in milliseconds, it looks like you might be trying to use seconds")
     
 def get_cache(config, cache_type, item_path, params):
     if not config.cache_dir: return None

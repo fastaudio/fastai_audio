@@ -104,6 +104,7 @@ class AudioItem(ItemBase):
         else: 
             si, ei = torchaudio.info(str(self.path))
             return si.length/si.rate
+        
     @property
     def data(self): return self.spectro if self.spectro is not None else self.sig
     @data.setter

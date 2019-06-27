@@ -37,6 +37,7 @@ class AudioItem(ItemBase):
 
     def show(self, title: [str] = None, **kwargs):
         print(f"File: {self.path}")
+        print(f"Total Length: {self.duration} seconds")
         self.hear(title=title)
         
         sg = self.spectro
@@ -87,7 +88,8 @@ class AudioItem(ItemBase):
     @property
     def sr(self):
         if not hasattr(self, '_sr') or self._sr is None:
-            self._reload_signal()
+            si, ei = torchaudio.info(str(self.path))
+            return si.rate
         return self._sr
     
     @sr.setter

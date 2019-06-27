@@ -97,8 +97,11 @@ class AudioItem(ItemBase):
     def ipy_audio(self): return Audio(data=self.sig, rate=self.sr)
 
     @property
-    def duration(self): return len(self.sig)/self.sr
-
+    def duration(self): 
+        if(self._sig is not None and self._sr is not None): return len(self.sig)/self.sr
+        else: 
+            si, ei = torchaudio.info(str(self.path))
+            return si.length/si.rate
     @property
     def data(self): return self.spectro if self.spectro is not None else self.sig
     @data.setter

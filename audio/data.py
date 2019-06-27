@@ -1,9 +1,10 @@
 from pathlib import Path as PosixPath
 from IPython.core.debugger import set_trace
 import os
+from collections import Counter
 from dataclasses import dataclass, asdict
 import hashlib
-
+import matplotlib as plt
 from fastai.vision import *
 import torchaudio
 from torchaudio.transforms import MelSpectrogram, SpectrogramToDB, MFCC
@@ -18,44 +19,48 @@ class AudioDataBunch(DataBunch):
         batch = self.dl(ds_type).dataset[:rows]
         prev = None
         for x, y in batch:
-            print(y)
-            x.show()
+            print('-'*60)
+            x.show(title=y)
 
 @dataclass
 class SpectrogramConfig:
     '''Configuration for how Spectrograms are generated'''
-    n_fft: int = 2560
-    ws: int = None
-    hop: int = 512
     f_min: int = 0
     f_max: int = 8000
-    pad: int = 0
+    hop: int = 512
+    n_fft: int = 2560
     n_mels: int = 128
-    
-
+    pad: int = 0
+    to_db_scale: bool = True
+    top_db: int = 100
+    ws: int = None
+    n_mfcc: int = 20
+    def mel_args(self):
+        return {k:v for k, v in asdict(self).items() if k in ["f_min", "f_max", "hop", "n_fft", 
+                                                      "n_mels", "pad", "ws"]}
+        
 @dataclass
 class AudioConfig:
     '''Options for pre-processing audio signals'''
-    duration: int = None
-    remove_silence: bool = False
-    use_spectro: bool = True
     cache: bool = True
     cache_dir = Path('.cache')
     force_cache = False
-    to_db_scale = True
-    silence_padding: int = 200
-    top_db: int = 80
-    processed = False
-    segment_size: int = None
-    silence_threshold: int = 20
+    
+    duration: int = None
     max_to_pad: float = None
+    remove_silence: bool = False
+    use_spectro: bool = True
+    mfcc: bool = False
+    
+    delta: bool = False
+    silence_padding: int = 200
+    silence_threshold: int = 20
+    segment_size: int = None
     resample_to: int = None
     standardize: bool = False
-    sg_cfg: SpectrogramConfig = SpectrogramConfig()
-    mfcc: bool = False
-    n_mfcc: int = 20
-    delta: bool = False
+    _processed = False
     _sr = None
+    sg_cfg: SpectrogramConfig = SpectrogramConfig()
     
 def get_cache(config, cache_type, item_path, params):
     if not config.cache_dir: return None
@@ -156,7 +161,7 @@ class AudioLabelList(LabelList):
     def process(self, *args, **kwargs):
         self._pre_process()
         super().process(*args, **kwargs)
-        self.x.config.processed = True
+        self.x.config._processed = True
 
 class AudioList(ItemList):
     _bunch = AudioDataBunch
@@ -185,7 +190,7 @@ class AudioList(ItemList):
             if cfg.cache and not cfg.force_cache and image_path.exists():
                 mel = torch.load(image_path).squeeze()
                 start, end = None, None
-                if cfg.duration and cfg.processed:
+                if cfg.duration and cfg._processed:
                     mel, start, end = tfm_crop_time(mel, cfg._sr, cfg.duration, cfg.sg_cfg.hop)
                 return AudioItem(spectro=mel, path=item, max_to_pad=cfg.max_to_pad, start=start, end=end)
 
@@ -202,10 +207,10 @@ class AudioList(ItemList):
 
         mel = None
         if cfg.use_spectro:
-            if cfg.mfcc: mel = MFCC(sr=samplerate, n_mfcc=cfg.n_mfcc, melkwargs=asdict(cfg.sg_cfg))(signal.reshape(1,-1))
+            if cfg.mfcc: mel = MFCC(sr=samplerate, n_mfcc=cfg.sg_cfg.n_mfcc, melkwargs=asdict(cfg.sg_cfg))(signal.reshape(1,-1))
             else:
-                mel = MelSpectrogram(**asdict(cfg.sg_cfg))(signal.reshape(1, -1))
-                if cfg.to_db_scale: mel = SpectrogramToDB(top_db=cfg.top_db)(mel)
+                mel = MelSpectrogram(**(cfg.sg_cfg.mel_args()))(signal.reshape(1, -1))
+                if cfg.sg_cfg.to_db_scale: mel = SpectrogramToDB(top_db=cfg.sg_cfg.top_db)(mel)
             mel = mel.squeeze().permute(1, 0)
             if cfg.standardize: mel = standardize(mel)
             if cfg.delta: mel = torch.stack([mel, torchdelta(mel), torchdelta(mel, order=2)]) 
@@ -214,7 +219,7 @@ class AudioList(ItemList):
                 os.makedirs(image_path.parent, exist_ok=True)
                 torch.save(mel, image_path)
             start, end = None, None
-            if cfg.duration and cfg.processed: 
+            if cfg.duration and cfg._processed: 
                 mel, start, end = tfm_crop_time(mel, cfg._sr, cfg.duration, cfg.sg_cfg.hop)
         return AudioItem(sig=signal.squeeze(), sr=samplerate, spectro=mel, path=item, start=start, end=end)
 
@@ -226,7 +231,33 @@ class AudioList(ItemList):
         if isinstance(item, (PosixPath, Path, str)):
             return self.open(item)
 
-        raise Exception("Can't handle that type")
+        raise Exception("Can't handle that type")     
+        
+    def stats(self, prec=0):
+        '''Displays sample rate information and a plot of file lengths of the AudioList'''
+        lens, rates = [], []
+        for item in self:
+            si, ei = torchaudio.info(str(item.path))
+            lens.append(si.length/si.rate)
+            rates.append(si.rate)
+        print("Sample Rates: ")
+        for sr,count in Counter(rates).items(): print(f"{int(sr)}: {count} files")
+        self._plot_lengths(lens, prec)
+    
+    def _plot_lengths(self, lens, prec):
+        '''Plots a list of file lengths displaying prec digits of precision'''
+        rounded = [round(i, prec) for i in lens]
+        rounded_count = Counter(rounded)
+        plt.figure(num=None, figsize=(15, 5), dpi=80, facecolor='w', edgecolor='k')
+        labels = sorted(rounded_count.keys())
+        values = [rounded_count[i] for i in labels]
+        width = 1
+        plt.bar(labels, values, width)
+        xticks = np.linspace(int(min(rounded)), int(max(rounded))+1, 10)
+        plt.xticks(xticks)
+        plt.show()
+   
+    
 
     @classmethod
     def from_folder(cls, path: PathOrStr = '.', extensions: Collection[str] = None, recurse: bool = True, **kwargs) -> ItemList:

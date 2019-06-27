@@ -31,7 +31,7 @@ class AudioItem(ItemBase):
     def open(self, item, **args):
         if isinstance(item, (Path, PosixPath, str)):
             sig, sr = torchaudio.load(item)
-            return AudioItem(sig, sr, path=item)
+            return AudioItem(sig, sr, path=Path(item))
         if isinstance(item, (tuple, np.ndarray)):
             return AudioItem(item)
 
@@ -49,7 +49,7 @@ class AudioItem(ItemBase):
                 display(Image(sg[2].unsqueeze(0)))
 
     def hear(self, title=None):
-        if title is not None: print(title)
+        if title is not None: print("Label:", title)
         
         if self.start is not None or self.end is not None:
             print(f"{round(self.start/self.sr, 2)}s-{round(self.end/self.sr,2)}s of original clip")

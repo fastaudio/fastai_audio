@@ -6,7 +6,7 @@ from fastai.data_block import ItemBase
 from fastai.vision import Image
 import numpy as np
 import torch
-from pathlib import Path
+from pathlib import Path, PosixPath
 
 AUDIO_EXTENSIONS = tuple(str.lower(k) for k, v in mimetypes.types_map.items()
                          if v.startswith('audio/'))
@@ -29,7 +29,7 @@ class AudioItem(ItemBase):
 
     @classmethod
     def open(self, item, **args):
-        if isinstance(item, (Path, str)):
+        if isinstance(item, (Path, PosixPath, str)):
             sig, sr = torchaudio.load(item)
             return AudioItem(sig, sr, path=Path(item))
         if isinstance(item, (tuple, np.ndarray)):

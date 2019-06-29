@@ -37,6 +37,7 @@ class AudioItem(ItemBase):
 
     def show(self, title: [str] = None, **kwargs):
         print(f"File: {self.path}")
+        print(f"Total Length: {self.duration} seconds")
         self.hear(title=title)
         
         sg = self.spectro
@@ -87,7 +88,8 @@ class AudioItem(ItemBase):
     @property
     def sr(self):
         if not hasattr(self, '_sr') or self._sr is None:
-            self._reload_signal()
+            si, ei = torchaudio.info(str(self.path))
+            self._sr = si.rate
         return self._sr
     
     @sr.setter
@@ -97,8 +99,12 @@ class AudioItem(ItemBase):
     def ipy_audio(self): return Audio(data=self.sig, rate=self.sr)
 
     @property
-    def duration(self): return len(self.sig)/self.sr
-
+    def duration(self): 
+        if(self._sig is not None): return len(self.sig)/self.sr
+        else: 
+            si, ei = torchaudio.info(str(self.path))
+            return si.length/si.rate
+        
     @property
     def data(self): return self.spectro if self.spectro is not None else self.sig
     @data.setter

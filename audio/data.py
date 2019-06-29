@@ -7,6 +7,7 @@ import hashlib
 import matplotlib as plt
 from fastai.vision import *
 import torchaudio
+import warnings
 from torchaudio.transforms import MelSpectrogram, SpectrogramToDB, MFCC
 from .audio import *
 from .transform import *
@@ -26,8 +27,8 @@ class AudioDataBunch(DataBunch):
 class SpectrogramConfig:
     '''Configuration for how Spectrograms are generated'''
     f_min: int = 0
-    f_max: int = 8000
-    hop: int = 512
+    f_max: int = 22050
+    hop: int = 256
     n_fft: int = 2560
     n_mels: int = 128
     pad: int = 0
@@ -61,6 +62,12 @@ class AudioConfig:
     _processed = False
     _sr = None
     sg_cfg: SpectrogramConfig = SpectrogramConfig()
+        
+    def __setattr__(self, name, value):
+        if name in 'duration max_to_pad segment_size silence_padding'.split():
+            if value is not None and value <= 30:
+                warnings.warn(f"{name} should be in milliseconds, it looks like you might be trying to use seconds")
+        super(AudioConfig, self).__setattr__(name, value)
     
 def get_cache(config, cache_type, item_path, params):
     if not config.cache_dir: return None
@@ -117,8 +124,11 @@ def segment_items(item, config, path):
     if not files:
         sig = sig.squeeze()
         sigs = []
-        for i in range((len(sig)//segsize) + 1):
-            sigs.append(sig[i*segsize:(i+1)*segsize])
+        siglen = len(sig)
+        for i in range((siglen//segsize) + 1):
+            #if there is a full segment, add it, if not take the remaining part and zero pad to correct length
+            if((i+1)*segsize <= siglen): sigs.append(sig[i*segsize:(i+1)*segsize])
+            else: sigs.append(torch.cat([sig[i*segsize:], torch.zeros(segsize-len(sig[i*segsize:]))]))
         files = make_cache(sigs, sr, config, "s", item_path, [config.segment_size])
     return list(zip(files, [label]*len(files)))
 
@@ -207,7 +217,7 @@ class AudioList(ItemList):
 
         mel = None
         if cfg.use_spectro:
-            if cfg.mfcc: mel = MFCC(sr=samplerate, n_mfcc=cfg.sg_cfg.n_mfcc, melkwargs=asdict(cfg.sg_cfg))(signal.reshape(1,-1))
+            if cfg.mfcc: mel = MFCC(sr=samplerate, n_mfcc=cfg.sg_cfg.n_mfcc, melkwargs=cfg.sg_cfg.mel_args())(signal.reshape(1,-1))
             else:
                 mel = MelSpectrogram(**(cfg.sg_cfg.mel_args()))(signal.reshape(1, -1))
                 if cfg.sg_cfg.to_db_scale: mel = SpectrogramToDB(top_db=cfg.sg_cfg.top_db)(mel)

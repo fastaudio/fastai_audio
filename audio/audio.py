@@ -89,7 +89,7 @@ class AudioItem(ItemBase):
     def sr(self):
         if not hasattr(self, '_sr') or self._sr is None:
             si, ei = torchaudio.info(str(self.path))
-            return si.rate
+            self._sr = si.rate
         return self._sr
     
     @sr.setter
@@ -100,7 +100,7 @@ class AudioItem(ItemBase):
 
     @property
     def duration(self): 
-        if(self._sig is not None and self._sr is not None): return len(self.sig)/self.sr
+        if(self._sig is not None): return len(self.sig)/self.sr
         else: 
             si, ei = torchaudio.info(str(self.path))
             return si.length/si.rate

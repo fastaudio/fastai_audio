@@ -142,28 +142,31 @@ class AudioLabelList(LabelList):
     def _pre_process(self):
         x, y = self.x, self.y
         cfg = x.config
-        if not cfg.resample_to: _set_sr(x.items[0], x.config, x.path)
-        if len(x.items) > 0 and (cfg.remove_silence or cfg.segment_size or cfg.resample_to):
-            items = list(zip(x.items, y.items))
+        print(x.items)
+        
+        if len(x.items) > 0:
+            if not cfg.resample_to: _set_sr(x.items[0], x.config, x.path)
+            if cfg.remove_silence or cfg.segment_size or cfg.resample_to:
+                items = list(zip(x.items, y.items))
 
-            def concat(x, y): return np.concatenate(
-                (x, y)) if len(y) > 0 else x
-            
-            if x.config.resample_to:
-                cfg._sr = x.config.resample_to
-                items = [resample_item(i, x.config, x.path) for i in items]
-                items = reduce(concat, items, np.empty((0, 2)))
+                def concat(x, y): return np.concatenate(
+                    (x, y)) if len(y) > 0 else x
+                
+                if x.config.resample_to:
+                    cfg._sr = x.config.resample_to 
+                    items = [resample_item(i, x.config, x.path) for i in items]
+                    items = reduce(concat, items, np.empty((0, 2)))
 
-            if x.config.remove_silence:
-                items = [remove_silence(i, x.config, x.path) for i in items]
-                items = reduce(concat, items, np.empty((0, 2)))
+                if x.config.remove_silence:
+                    items = [remove_silence(i, x.config, x.path) for i in items]
+                    items = reduce(concat, items, np.empty((0, 2)))
 
-            if x.config.segment_size:
-                items = [segment_items(i, x.config, x.path) for i in items]
-                items = reduce(concat, items, np.empty((0, 2)))
+                if x.config.segment_size:
+                    items = [segment_items(i, x.config, x.path) for i in items]
+                    items = reduce(concat, items, np.empty((0, 2)))
 
-            nx, ny = tuple(zip(*items))
-            x.items, y.items = np.array(nx), np.array(ny)
+                nx, ny = tuple(zip(*items))
+                x.items, y.items = np.array(nx), np.array(ny)
  
         self.x, self.y = x, y
         self.y.x = x

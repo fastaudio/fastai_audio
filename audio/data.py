@@ -142,7 +142,6 @@ class AudioLabelList(LabelList):
     def _pre_process(self):
         x, y = self.x, self.y
         cfg = x.config
-        print(x.items)
         
         if len(x.items) > 0:
             if not cfg.resample_to: _set_sr(x.items[0], x.config, x.path)

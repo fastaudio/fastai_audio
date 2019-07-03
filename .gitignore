@@ -7,7 +7,6 @@ __pycache__/
 *processed_audio
 *torchaudio
 *torchaudio.egg*
-.*
 timit
 drafts
 

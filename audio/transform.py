@@ -120,7 +120,7 @@ def tfm_remove_silence(signal, rate, remove_type, threshold=20, pad_ms=200):
     '''Split signal at points of silence greater than 2*pad_ms '''
     actual = signal.clone().squeeze()
     padding = int(pad_ms/1000*rate)
-    if(padding > len(actual)):ss return [actual]
+    if(padding > len(actual)): return [actual]
     splits = split(actual.numpy(), top_db=threshold, hop_length=padding)
     if remove_type == "split":
         return [actual[(max(a-padding,0)):(min(b+padding,len(actual)))] for (a, b) in splits]

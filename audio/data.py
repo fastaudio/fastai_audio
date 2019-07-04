@@ -230,9 +230,9 @@ class AudioList(ItemList):
 
         mel = None
         if cfg.use_spectro:
-            if cfg.mfcc: mel = MFCC(sr=samplerate, n_mfcc=cfg.sg_cfg.n_mfcc, melkwargs=cfg.sg_cfg.mel_args())(signal.reshape(1,-1))
+            if cfg.mfcc: mel = MFCC(sr=samplerate, n_mfcc=cfg.sg_cfg.n_mfcc, melkwargs=cfg.sg_cfg.mel_args())(signal)
             else:
-                mel = MelSpectrogram(**(cfg.sg_cfg.mel_args()))(signal.reshape(1, -1))
+                mel = MelSpectrogram(**(cfg.sg_cfg.mel_args()))(signal)
                 if cfg.sg_cfg.to_db_scale: mel = SpectrogramToDB(top_db=cfg.sg_cfg.top_db)(mel)
             mel = mel.squeeze().permute(1, 0).flip(0)
             if cfg.standardize: mel = standardize(mel)

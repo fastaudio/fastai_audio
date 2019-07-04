@@ -37,7 +37,7 @@ class AudioItem(ItemBase):
 
     def show(self, title: [str] = None, **kwargs):
         print(f"File: {self.path}")
-        print(f"Total Length: {self.duration} seconds")
+        print(f"Total Length: {round(self.duration, 2)} seconds")
         self.hear(title=title)
         
         sg = self.spectro

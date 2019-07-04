@@ -116,20 +116,20 @@ def get_spectro_transforms(mask_time:bool=True,
     
     return (train+listify(xtra_tfms), val)
 
-def tfm_trim_silence(signal, rate, threshold=20, pad_ms=200):
-    '''Remove silence from start and end of audio'''
-    actual = signal.clone().squeeze()
-    padding = int(pad_ms/1000*rate)
-    splits = split(actual.numpy(), top_db=threshold)
-    return actual[splits[0, 0]-padding:splits[-1, -1]+padding].unsqueeze(0)
-
-def tfm_chop_silence(signal, rate, threshold=20, pad_ms=200):
+def tfm_remove_silence(signal, rate, remove_type, threshold=20, pad_ms=200):
     '''Split signal at points of silence greater than 2*pad_ms '''
     actual = signal.clone().squeeze()
     padding = int(pad_ms/1000*rate)
-    if(padding > len(actual)): return [actual]
+    if(padding > len(actual)):ss return [actual]
     splits = split(actual.numpy(), top_db=threshold, hop_length=padding)
-    return [actual[(max(a-padding,0)):(min(b+padding,len(actual)))] for (a, b) in splits]
+    if remove_type == "split":
+        return [actual[(max(a-padding,0)):(min(b+padding,len(actual)))] for (a, b) in splits]
+    elif remove_type == "trim":
+        return [actual[(max(splits[0, 0]-padding,0)):splits[-1, -1]+padding].unsqueeze(0)]
+    elif remove_type == "all":
+        return [torch.cat([actual[(max(a-padding,0)):(min(b+padding,len(actual)))] for (a, b) in splits])]
+    else: 
+        raise ValueError(f"Valid options for silence removal are None, 'split', 'trim', 'all' not {remove_type}.")
 
 def tfm_resample(signal, sr, sr_new):
     '''Resample using faster polyphase technique and avoiding FFT computation'''

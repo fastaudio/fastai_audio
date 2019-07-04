@@ -49,7 +49,7 @@ class AudioConfig:
     
     duration: int = None
     max_to_pad: float = None
-    remove_silence: bool = False
+    remove_silence: str = None
     use_spectro: bool = True
     mfcc: bool = False
     
@@ -108,11 +108,13 @@ def remove_silence(item, config, path):
     item_path, label = item
     if not os.path.exists(item_path): item_path = path/item_path
     st, sp = config.silence_threshold, config.silence_padding
-    files = get_cache(config, "sh", item_path, [st, sp])
+    remove_type = config.remove_silence
+    cache_prefix = f"sh-{remove_type[0]}"
+    files = get_cache(config, cache_prefix, item_path, [st, sp])
     if not files:
         sig, sr = torchaudio.load(item_path)
-        sigs = tfm_chop_silence(sig, sr, st, sp)
-        files = make_cache(sigs, sr, config, "sh", item_path, [st, sp])
+        sigs = tfm_remove_silence(sig, sr, remove_type, st, sp)
+        files = make_cache(sigs, sr, config, cache_prefix, item_path, [st, sp])
     return list(zip(files, [label]*len(files)))
 
 def segment_items(item, config, path):

@@ -6,6 +6,7 @@ from dataclasses import dataclass, asdict
 import hashlib
 import matplotlib as plt
 from fastai.vision import *
+from fastprogress import progress_bar
 import torchaudio
 import warnings
 from torchaudio.transforms import MelSpectrogram, SpectrogramToDB, MFCC
@@ -134,6 +135,14 @@ def segment_items(item, config, path):
         files = make_cache(sigs, sr, config, "s", item_path, [config.segment_size])
     return list(zip(files, [label]*len(files)))
 
+def get_outliers(len_dict, devs):
+    np_lens = array(list(len_dict.values()))
+    stdev = np_lens.std()
+    lower_thresh = np_lens.mean() - stdev*devs
+    upper_thresh = np_lens.mean() + stdev*devs
+    outliers = [(k,v) for k,v in len_dict.items() if not (lower_thresh < v < upper_thresh)]
+    return sorted(outliers, key=lambda tup: tup[1])
+
 def _set_sr(item_path, config, path):
     if not os.path.exists(item_path): item_path = path/item_path
     sig, sr = torchaudio.load(item_path)
@@ -249,22 +258,27 @@ class AudioList(ItemList):
 
         raise Exception("Can't handle that type")     
         
-    def stats(self, prec=0):
-        '''Displays sample rate information and a plot of file lengths of the AudioList'''
-        lens, rates = [], []
-        for item in self:
+    def stats(self, prec=0, devs=3, figsize=(15,5)):
+        '''Displays samples, plots file lengths and returns outliers of the AudioList'''
+        len_dict = {}
+        rate_dict = {}
+        pb = progress_bar(self)
+        for item in pb:
             si, ei = torchaudio.info(str(item.path))
-            lens.append(si.length/si.rate)
-            rates.append(si.rate)
+            len_dict[item.path] = si.length/si.rate
+            rate_dict[item.path] = si.rate
+        lens = list(len_dict.values())
+        rates = list(rate_dict.values())
         print("Sample Rates: ")
         for sr,count in Counter(rates).items(): print(f"{int(sr)}: {count} files")
-        self._plot_lengths(lens, prec)
+        self._plot_lengths(lens, prec, figsize)
+        return len_dict 
     
-    def _plot_lengths(self, lens, prec):
+    def _plot_lengths(self, lens, prec, figsize):
         '''Plots a list of file lengths displaying prec digits of precision'''
         rounded = [round(i, prec) for i in lens]
         rounded_count = Counter(rounded)
-        plt.figure(num=None, figsize=(15, 5), dpi=80, facecolor='w', edgecolor='k')
+        plt.figure(num=None, figsize=figsize, dpi=80, facecolor='w', edgecolor='k')
         labels = sorted(rounded_count.keys())
         values = [rounded_count[i] for i in labels]
         width = 1

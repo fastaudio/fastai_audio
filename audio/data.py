@@ -64,7 +64,7 @@ class AudioConfig:
     sg_cfg: SpectrogramConfig = SpectrogramConfig()
         
     def __setattr__(self, name, value):
-        if name in 'duration max_to_pad segment_size silence_padding'.split():
+        if name in 'duration max_to_pad segment_size'.split():
             if value is not None and value <= 30:
                 warnings.warn(f"{name} should be in milliseconds, it looks like you might be trying to use seconds")
         super(AudioConfig, self).__setattr__(name, value)

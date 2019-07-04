@@ -241,9 +241,11 @@ class AudioList(ItemList):
         item = self.items[i]
         if isinstance(item, AudioItem):
             return item
-
-        if isinstance(item, (PosixPath, Path, str)):
+        if isinstance(item, (PosixPath, Path)):
             return self.open(item)
+        if isinstance(item, str):
+            if not ('/') in item: return self.open(self.path/item)
+            else:                 return self.open(item)
 
         raise Exception("Can't handle that type")     
         

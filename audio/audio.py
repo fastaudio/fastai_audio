@@ -15,12 +15,12 @@ AUDIO_EXTENSIONS = tuple(str.lower(k) for k, v in mimetypes.types_map.items()
 class AudioItem(ItemBase):
     def __init__(self, sig=None, sr=None, path=None, spectro=None, max_to_pad=None, start=None, end=None):
         '''Holds Audio signal and/or specrogram data'''
-        if(isinstance(sig, np.ndarray) and len(sig.shape) == 1): sig = torch.from_numpy(sig).unsqueeze(0)
-        
-        if(sig is not None and len(sig.shape) > 1 and sig.shape[0] > 1):
-            print(sig.shape)
-            warnings.warn(f"Audio found with {sig.shape[0]} channels, automatically downmixing to mono")
-            sig = DownmixMono(channels_first=True)(sig)
+        if isinstance(sig, np.ndarray): sig = torch.from_numpy(sig)
+        if sig is not None:
+            if(len(sig.shape) == 1): sig = sig.unsqueeze(0)
+            if(sig is not None and len(sig.shape) > 1 and sig.shape[0] > 1):
+                warnings.warn(f'''Audio file {path} has {sig.shape[0]} channels, automatically downmixing to mono''')
+                sig = DownmixMono(channels_first=True)(sig)
         self._sig, self._sr, self.path, self.spectro = sig, sr, path, spectro
         self.max_to_pad = max_to_pad
         self.start, self.end = start, end
@@ -49,7 +49,7 @@ class AudioItem(ItemBase):
                          
     def get_spec_images(self):
         sg = self.spectro
-        if sg is None: return None 
+        if sg is None: return [] 
         if torch.all(torch.eq(sg[0], sg[1])) and torch.all(torch.eq(sg[0], sg[2])):
             return [Image(sg[0].unsqueeze(0))]
         else: 

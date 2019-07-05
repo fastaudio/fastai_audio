@@ -60,6 +60,7 @@ class AudioConfig:
     segment_size: int = None
     resample_to: int = None
     standardize: bool = False
+    downmix: bool = False
     _processed = False
     _sr = None
     sg_cfg: SpectrogramConfig = SpectrogramConfig()
@@ -224,7 +225,9 @@ class AudioList(ItemList):
                                 this means your dataset has multiple different sample rates, 
                                 please choose one and set resample_to to that value''')
         if(signal.shape[0] > 1):
-            warnings.warn(f"Audio file {p} is multichannel, automatically downmixing to mono")
+            if not cfg.downmix:
+                warnings.warn(f'''Audio file {p} has {signal.shape[0]} channels, automatically downmixing to mono, 
+                                set AudioConfig.downmix=True to remove warnings''')
             signal = DownmixMono(channels_first=True)(signal)
         if cfg.max_to_pad or cfg.segment_size:
             pad_len = cfg.max_to_pad if cfg.max_to_pad is not None else cfg.segment_size

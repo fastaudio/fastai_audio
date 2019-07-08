@@ -40,7 +40,7 @@ def torchdelta(mel, order=1, width=9):
         {width} columns, try setting max_to_pad to a larger value to ensure a minimum width''')
     return torch.from_numpy(librosa.feature.delta(mel.numpy(), order=order, width=9))
 
-def tfm_crop_time(spectro, sr, crop_duration, hop):
+def tfm_crop_time(spectro, sr, crop_duration, hop, pad_type="zeros"):
     '''Random crops full spectrogram to be length specified in ms by crop_duration'''
     crop_duration /= 1000
     sg = spectro.clone()
@@ -49,8 +49,7 @@ def tfm_crop_time(spectro, sr, crop_duration, hop):
     crop_width = int(sr*(crop_duration)/hop)
     #if crop_duration is longer than total clip, pad with zeros to crop_duration and return
     if crop_duration >= total_duration: 
-        padding = torch.zeros((c,y, crop_width-x))
-        sg_pad = torch.cat((sg, padding), 2)
+        sg_pad = tfm_pad_spectro(spectro, crop_width, pad_type)
         return sg_pad, None, None
     crop_start = random.randint(0, x-crop_width)
     sg_crop = sg[:,:,crop_start:crop_start+crop_width]

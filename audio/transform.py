@@ -57,6 +57,18 @@ def tfm_crop_time(spectro, sr, crop_duration, hop, pad_type="zeros"):
     end_sample = int(start_sample + crop_duration*sr)
     return sg_crop, start_sample, end_sample
 
+def tfm_pad_spectro(spectro, width, pad_type="zeros"):
+    '''Pad spectrogram to specified width, using specified pad mode'''
+    c,y,x = spectro.shape
+    if pad_type.lower() == "zeros":
+        padding = torch.zeros((c,y, width-x))
+        return torch.cat((sg, padding), 2)
+    elif pad_type.lower() == "repeat":
+        repeats = width//x + 1
+        return torch.repeat(1,1,repeats)[:,:,:width]
+    else:
+        raise ValueError(f"pad_type {pad_type} not currently supported, only 'zeros', or 'repeat'")
+
 def tfm_sg_roll(spectro, max_shift_pct=0.7, direction=0, **kwargs):
     '''Shifts spectrogram along x-axis wrapping around to other side'''
     if len(spectro.shape) < 2:

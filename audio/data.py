@@ -147,7 +147,7 @@ def segment_items(item, config, path):
     return list(zip(files, [label]*len(files)))
 
 def _record_cache_contents(files):
-    '''Writes cache filenames to log for safe removal using 'clear_cache()''''
+    '''Writes cache filenames to log for safe removal using 'clear_cache()' '''
     with open(cache_dir/"cache_contents.txt", 'a+') as f:
         for file in files: f.write(file+'\n')
 

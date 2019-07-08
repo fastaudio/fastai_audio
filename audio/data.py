@@ -232,7 +232,7 @@ class AudioList(ItemList):
             signal = DownmixMono(channels_first=True)(signal)
         if cfg.max_to_pad or cfg.segment_size:
             pad_len = cfg.max_to_pad if cfg.max_to_pad is not None else cfg.segment_size
-            signal = PadTrim(max_len=int(pad_len/1000*samplerate))(signal)
+            signal = tfm_pad_signal(sig, int(self.max_to_pad/1000*sr), pad_type="zeros")
 
         mel = None
         if cfg.use_spectro:

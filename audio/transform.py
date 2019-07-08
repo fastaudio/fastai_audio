@@ -62,10 +62,10 @@ def tfm_pad_spectro(spectro, width, pad_type="zeros"):
     c,y,x = spectro.shape
     if pad_type.lower() == "zeros":
         padding = torch.zeros((c,y, width-x))
-        return torch.cat((sg, padding), 2)
+        return torch.cat((spectro, padding), 2)
     elif pad_type.lower() == "repeat":
         repeats = width//x + 1
-        return torch.repeat(1,1,repeats)[:,:,:width]
+        return spectro.repeat(1,1,repeats)[:,:,:width]
     else:
         raise ValueError(f"pad_type {pad_type} not currently supported, only 'zeros', or 'repeat'")
         

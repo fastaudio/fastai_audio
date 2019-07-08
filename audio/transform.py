@@ -140,8 +140,8 @@ def get_spectro_transforms(size:tuple,
     train = []
     val = []
     if size: 
-        train.append(partial(tf, size=size, **kwargs))
-        val.append(partial(tf, size=size, **kwargs))
+        train.append(partial(tfm_interpolate, size=size, **kwargs))
+        val.append(partial(tfm_interpolate, size=size, **kwargs))
     if mask_time: train.append(partial(tfm_mask_time, **kwargs))
     if mask_frequency: train.append(partial(tfm_mask_frequency, **kwargs))
     if roll: train.append(partial(tfm_sg_roll, **kwargs))

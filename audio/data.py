@@ -68,20 +68,30 @@ class AudioConfig:
     sg_cfg: SpectrogramConfig = SpectrogramConfig()
         
     def __setattr__(self, name, value):
+        '''Override to warn user if they are mixing seconds and ms'''
         if name in 'duration max_to_pad segment_size'.split():
             if value is not None and value <= 30:
                 warnings.warn(f"{name} should be in milliseconds, it looks like you might be trying to use seconds")
         super(AudioConfig, self).__setattr__(name, value)
         
     def clear_cache(self):
+        '''Delete the files and empty dirs in the cache folder'''
+        if not os.path.exists(self.cache_dir/"cache_contents.txt"):
+            print("Cache not found, try calling again after creating your labellist")
+            
         with open(self.cache_dir/"cache_contents.txt", 'r') as f:
-            for line in f: 
-                print(f"removing '{line.strip()}'")
-                os.remove(line.strip())
-        #os.remove(cache_dir/"cache_contents.txt")
+            for line in f:
+                if os.path.exists(line.strip()): os.remove(line.strip())
+                parent = Path(line).parents[0]
+                if(len(parent.ls()) == 0): os.rmdir(str(parent))
+        os.remove(self.cache_dir/"cache_contents.txt")
      
     def cache_size(self):
+        '''Check cache size, returns a tuple of int in bytes, and string representing MB'''
         cache_size = 0
+        if not os.path.exists(self.cache_dir/"cache_contents.txt"):
+            print("Cache not found, try calling again after creating your labellist")
+            return (None, None)
         for (path, dirs, files) in os.walk(self.cache_dir):
             for file in files:
                 cache_size += os.path.getsize(os.path.join(path, file))
@@ -159,7 +169,6 @@ def _record_cache_contents(cfg, files):
     '''Writes cache filenames to log for safe removal using 'clear_cache()' '''
     with open(cfg.cache_dir/"cache_contents.txt", 'a+') as f:
         for file in files: 
-            print(f"adding '{str(file)}'")
             f.write(str(file)+'\n')
 
 def get_outliers(len_dict, devs):

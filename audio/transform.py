@@ -40,7 +40,7 @@ def torchdelta(mel, order=1, width=9):
         {width} columns, try setting max_to_pad to a larger value to ensure a minimum width''')
     return torch.from_numpy(librosa.feature.delta(mel.numpy(), order=order, width=9))
 
-def tfm_crop_time(spectro, sr, crop_duration, hop, pad_type="zeros"):
+def tfm_crop_time(spectro, sr, crop_duration, hop, pad_mode="zeros"):
     '''Random crops full spectrogram to be length specified in ms by crop_duration'''
     crop_duration /= 1000
     sg = spectro.clone()
@@ -49,7 +49,7 @@ def tfm_crop_time(spectro, sr, crop_duration, hop, pad_type="zeros"):
     crop_width = int(sr*(crop_duration)/hop)
     #if crop_duration is longer than total clip, pad with zeros to crop_duration and return
     if crop_duration >= total_duration: 
-        sg_pad = tfm_pad_spectro(spectro, crop_width, pad_type)
+        sg_pad = tfm_pad_spectro(spectro, crop_width, pad_mode)
         return sg_pad, None, None
     crop_start = random.randint(0, x-crop_width)
     sg_crop = sg[:,:,crop_start:crop_start+crop_width]
@@ -57,31 +57,31 @@ def tfm_crop_time(spectro, sr, crop_duration, hop, pad_type="zeros"):
     end_sample = int(start_sample + crop_duration*sr)
     return sg_crop, start_sample, end_sample
 
-def tfm_pad_spectro(spectro, width, pad_type="zeros"):
+def tfm_pad_spectro(spectro, width, pad_mode="zeros"):
     '''Pad spectrogram to specified width, using specified pad mode'''
     c,y,x = spectro.shape
-    if pad_type.lower() == "zeros":
+    if pad_mode.lower() == "zeros":
         padding = torch.zeros((c,y, width-x))
         return torch.cat((spectro, padding), 2)
-    elif pad_type.lower() == "repeat":
+    elif pad_mode.lower() == "repeat":
         repeats = width//x + 1
         return spectro.repeat(1,1,repeats)[:,:,:width]
     else:
-        raise ValueError(f"pad_type {pad_type} not currently supported, only 'zeros', or 'repeat'")
+        raise ValueError(f"pad_mode {pad_mode} not currently supported, only 'zeros', or 'repeat'")
         
-def tfm_padtrim_signal(signal, width, pad_type="zeros"):
+def tfm_padtrim_signal(signal, width, pad_mode="zeros"):
     '''Pad signal to specified width, using specified pad mode'''
     c, x = signal.shape
     if (x == width): return signal
     elif (x > width): return signal[:,:width]
-    elif pad_type.lower() == "zeros":
+    elif pad_mode.lower() == "zeros":
         padding = torch.zeros((c, width-x))
         return torch.cat((sg, padding), 1)
-    elif pad_type.lower() == "repeat":
+    elif pad_mode.lower() == "repeat":
         repeats = width//x + 1
         return torch.repeat(1,repeats)[:,:width]
     else:
-        raise ValueError(f"pad_type {pad_type} not currently supported, only 'zeros', or 'repeat'")
+        raise ValueError(f"pad_mode {pad_mode} not currently supported, only 'zeros', or 'repeat'")
 
 def tfm_sg_roll(spectro, max_shift_pct=0.7, direction=0, **kwargs):
     '''Shifts spectrogram along x-axis wrapping around to other side'''

@@ -1,3 +1,5 @@
+from .audio import *
+from .transform import *
 from pathlib import Path as PosixPath
 from IPython.core.debugger import set_trace
 import os
@@ -10,8 +12,7 @@ from fastprogress import progress_bar
 import torchaudio
 import warnings
 from torchaudio.transforms import MelSpectrogram, SpectrogramToDB, MFCC
-from .audio import *
-from .transform import *
+
 
 def md5(s):
     return hashlib.md5(s.encode("utf-8")).hexdigest()

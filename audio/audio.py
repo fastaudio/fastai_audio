@@ -8,6 +8,7 @@ import numpy as np
 import torch
 import warnings
 from pathlib import Path, PosixPath
+from .transform import *
 
 AUDIO_EXTENSIONS = tuple(str.lower(k) for k, v in mimetypes.types_map.items()
                          if v.startswith('audio/'))

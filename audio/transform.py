@@ -86,6 +86,7 @@ def tfm_padtrim_signal(sig, width, pad_mode="zeros"):
         
 def tfm_interpolate(spectro, size, interp_mode="bilinear"):
     '''Temporary fix to allow image resizing transform'''
+    if isinstance(size, int): size = (size, size)
     sg = spectro.clone()
     c,y,x = sg.shape
     return F.interpolate(sg.unsqueeze(0), size=size, mode=interp_mode).squeeze(0)

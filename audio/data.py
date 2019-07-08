@@ -72,6 +72,11 @@ class AudioConfig:
             if value is not None and value <= 30:
                 warnings.warn(f"{name} should be in milliseconds, it looks like you might be trying to use seconds")
         super(AudioConfig, self).__setattr__(name, value)
+        
+    def clear_cache(self):
+        with open(cache_dir/"cache_contents.txt", 'r') as f:
+            for line in f: os.remove(f)
+        #os.remove(cache_dir/"cache_contents.txt")
     
 def get_cache(config, cache_type, item_path, params):
     if not config.cache_dir: return None

@@ -78,7 +78,7 @@ class AudioItem(ItemBase):
     def _reload_signal(self):
         sig, sr = torchaudio.load(self.path)
         if self.max_to_pad is not None:
-            sig = transform.tfm_padtrim_signal(sig, int(self.max_to_pad/1000*sr), pad_type="zeros")
+            sig = tfm_padtrim_signal(sig, int(self.max_to_pad/1000*sr), pad_mode="zeros")
         self._sr = sr
         self._sig = sig
 

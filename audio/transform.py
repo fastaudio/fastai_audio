@@ -130,7 +130,8 @@ def tfm_mask_frequency(spectro, fmasks=1, num_rows=30, start_row=None, fmask_val
         start_row = None
     return sg
 
-def get_spectro_transforms(mask_time:bool=True,
+def get_spectro_transforms(size:tuple,
+                           mask_time:bool=True,
                            mask_frequency:bool=True,
                            roll:bool=True,
                            xtra_tfms:Optional[Collection[Transform]]=None,
@@ -138,10 +139,12 @@ def get_spectro_transforms(mask_time:bool=True,
     "Utility func to create a list of spectrogram transforms"
     train = []
     val = []
+    if size: 
+        train.append(partial(tf, size=size, **kwargs))
+        val.append(partial(tf, size=size, **kwargs))
     if mask_time: train.append(partial(tfm_mask_time, **kwargs))
     if mask_frequency: train.append(partial(tfm_mask_frequency, **kwargs))
     if roll: train.append(partial(tfm_sg_roll, **kwargs))
-    
     return (train+listify(xtra_tfms), val)
 
 def tfm_remove_silence(signal, rate, remove_type, threshold=20, pad_ms=200):

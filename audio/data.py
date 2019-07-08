@@ -50,6 +50,7 @@ class AudioConfig:
     
     duration: int = None
     max_to_pad: float = None
+    pad_type: str = "zeros"
     remove_silence: str = None
     use_spectro: bool = True
     mfcc: bool = False

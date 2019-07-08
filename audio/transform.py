@@ -7,6 +7,7 @@ from fastai import *
 from fastai.text import *
 from fastai.vision import *
 import torch
+import torch.nn.functional as F
 import librosa
 import torchaudio
 from librosa.effects import split
@@ -82,6 +83,9 @@ def tfm_padtrim_signal(signal, width, pad_mode="zeros"):
         return torch.repeat(1,repeats)[:,:width]
     else:
         raise ValueError(f"pad_mode {pad_mode} not currently supported, only 'zeros', or 'repeat'")
+        
+def tfm_interpolate(spectro, size, interp_mode="bilinear"):
+    return F.interpolate(spectro, size=size, mode=interp_mode)
 
 def tfm_sg_roll(spectro, max_shift_pct=0.7, direction=0, **kwargs):
     '''Shifts spectrogram along x-axis wrapping around to other side'''

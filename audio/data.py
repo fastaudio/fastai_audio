@@ -74,9 +74,18 @@ class AudioConfig:
         super(AudioConfig, self).__setattr__(name, value)
         
     def clear_cache(self):
-        with open(cache_dir/"cache_contents.txt", 'r') as f:
-            for line in f: os.remove(f)
+        with open(self.cache_dir/"cache_contents.txt", 'r') as f:
+            for line in f: 
+                print(f"removing '{line.strip()}'")
+                os.remove(line.strip())
         #os.remove(cache_dir/"cache_contents.txt")
+     
+    def cache_size(self):
+        cache_size = 0
+        for (path, dirs, files) in os.walk(self.cache_dir):
+            for file in files:
+                cache_size += os.path.getsize(os.path.join(path, file))
+        return (cache_size, f"{cache_size//(2**20)} MB")
     
 def get_cache(config, cache_type, item_path, params):
     if not config.cache_dir: return None
@@ -111,7 +120,7 @@ def resample_item(item, config, path):
         sig, sr = torchaudio.load(item_path)
         sig = [tfm_resample(sig, sr, sr_new)]
         files = make_cache(sig, sr_new, config, "rs", item_path, [sr_new])
-        _record_cache_contents(files)
+        _record_cache_contents(config, files)
     return list(zip(files, [label]*len(files)))
 
 def remove_silence(item, config, path):
@@ -125,7 +134,7 @@ def remove_silence(item, config, path):
         sig, sr = torchaudio.load(item_path)
         sigs = tfm_remove_silence(sig, sr, remove_type, st, sp)
         files = make_cache(sigs, sr, config, cache_prefix, item_path, [st, sp])
-        _record_cache_contents(files)
+        _record_cache_contents(config, files)
     return list(zip(files, [label]*len(files)))
 
 def segment_items(item, config, path):
@@ -143,13 +152,15 @@ def segment_items(item, config, path):
             if((i+1)*segsize <= siglen): sigs.append(sig[i*segsize:(i+1)*segsize])
             else: sigs.append(torch.cat([sig[i*segsize:], torch.zeros(segsize-len(sig[i*segsize:]))]))
         files = make_cache(sigs, sr, config, "s", item_path, [config.segment_size])
-        _record_cache_contents(files)
+        _record_cache_contents(config, files)
     return list(zip(files, [label]*len(files)))
 
-def _record_cache_contents(files):
+def _record_cache_contents(cfg, files):
     '''Writes cache filenames to log for safe removal using 'clear_cache()' '''
-    with open(cache_dir/"cache_contents.txt", 'a+') as f:
-        for file in files: f.write(file+'\n')
+    with open(cfg.cache_dir/"cache_contents.txt", 'a+') as f:
+        for file in files: 
+            print(f"adding '{str(file)}'")
+            f.write(str(file)+'\n')
 
 def get_outliers(len_dict, devs):
     np_lens = array(list(len_dict.values()))
@@ -261,7 +272,7 @@ class AudioList(ItemList):
             if cfg.cache:
                 os.makedirs(image_path.parent, exist_ok=True)
                 torch.save(mel, image_path)
-                _record_cache_contents([image_path])
+                _record_cache_contents(cfg, [image_path])
             start, end = None, None
             if cfg.duration and cfg._processed: 
                 mel, start, end = tfm_crop_time(mel, cfg._sr, cfg.duration, cfg.sg_cfg.hop, cfg.pad_mode)

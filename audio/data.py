@@ -216,7 +216,7 @@ class AudioList(ItemList):
                 mel = torch.load(image_path).squeeze()
                 start, end = None, None
                 if cfg.duration and cfg._processed:
-                    mel, start, end = tfm_crop_time(mel, cfg._sr, cfg.duration, cfg.sg_cfg.hop)
+                    mel, start, end = tfm_crop_time(mel, cfg._sr, cfg.duration, cfg.sg_cfg.hop, cfg.pad_type)
                 return AudioItem(spectro=mel, path=item, max_to_pad=cfg.max_to_pad, start=start, end=end)
 
         signal, samplerate = torchaudio.load(str(p))
@@ -249,7 +249,7 @@ class AudioList(ItemList):
                 torch.save(mel, image_path)
             start, end = None, None
             if cfg.duration and cfg._processed: 
-                mel, start, end = tfm_crop_time(mel, cfg._sr, cfg.duration, cfg.sg_cfg.hop)
+                mel, start, end = tfm_crop_time(mel, cfg._sr, cfg.duration, cfg.sg_cfg.hop, cfg.pad_type)
         return AudioItem(sig=signal.squeeze(), sr=samplerate, spectro=mel, path=item, start=start, end=end)
 
     def get(self, i):

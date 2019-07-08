@@ -68,6 +68,18 @@ def tfm_pad_spectro(spectro, width, pad_type="zeros"):
         return torch.repeat(1,1,repeats)[:,:,:width]
     else:
         raise ValueError(f"pad_type {pad_type} not currently supported, only 'zeros', or 'repeat'")
+        
+def tfm_pad_signal(signal, width, pad_type="zeors"):
+    '''Pad signal to specified width, using specified pad mode'''
+    c, x = signal.shape
+    if pad_type.lower() == "zeros":
+        padding = torch.zeros((c, width-x))
+        return torch.cat((sg, padding), 1)
+    elif pad_type.lower() == "repeat":
+        repeats = width//x + 1
+        return torch.repeat(1,repeats)[:,:width]
+    else:
+        raise ValueError(f"pad_type {pad_type} not currently supported, only 'zeros', or 'repeat'")
 
 def tfm_sg_roll(spectro, max_shift_pct=0.7, direction=0, **kwargs):
     '''Shifts spectrogram along x-axis wrapping around to other side'''

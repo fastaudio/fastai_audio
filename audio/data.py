@@ -60,6 +60,7 @@ class AudioConfig:
     segment_size: int = None
     resample_to: int = None
     standardize: bool = False
+    downmix: bool = False
     _processed = False
     _sr = None
     sg_cfg: SpectrogramConfig = SpectrogramConfig()
@@ -223,18 +224,22 @@ class AudioList(ItemList):
                                 does not match config sample rate {cfg._sr} 
                                 this means your dataset has multiple different sample rates, 
                                 please choose one and set resample_to to that value''')
-
+        if(signal.shape[0] > 1):
+            if not cfg.downmix:
+                warnings.warn(f'''Audio file {p} has {signal.shape[0]} channels, automatically downmixing to mono, 
+                                set AudioConfig.downmix=True to remove warnings''')
+            signal = DownmixMono(channels_first=True)(signal)
         if cfg.max_to_pad or cfg.segment_size:
             pad_len = cfg.max_to_pad if cfg.max_to_pad is not None else cfg.segment_size
             signal = PadTrim(max_len=int(pad_len/1000*samplerate))(signal)
 
         mel = None
         if cfg.use_spectro:
-            if cfg.mfcc: mel = MFCC(sr=samplerate, n_mfcc=cfg.sg_cfg.n_mfcc, melkwargs=cfg.sg_cfg.mel_args())(signal.reshape(1,-1))
+            if cfg.mfcc: mel = MFCC(sr=samplerate, n_mfcc=cfg.sg_cfg.n_mfcc, melkwargs=cfg.sg_cfg.mel_args())(signal)
             else:
-                mel = MelSpectrogram(**(cfg.sg_cfg.mel_args()))(signal.reshape(1, -1))
+                mel = MelSpectrogram(**(cfg.sg_cfg.mel_args()))(signal)
                 if cfg.sg_cfg.to_db_scale: mel = SpectrogramToDB(top_db=cfg.sg_cfg.top_db)(mel)
-            mel = mel.squeeze().permute(1, 0)
+            mel = mel.squeeze().permute(1, 0).flip(0)
             if cfg.standardize: mel = standardize(mel)
             if cfg.delta: mel = torch.stack([mel, torchdelta(mel), torchdelta(mel, order=2)]) 
             else: mel = mel.expand(3,-1,-1)

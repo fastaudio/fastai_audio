@@ -1,11 +1,12 @@
 from IPython.display import Audio
 import mimetypes
 import torchaudio
-from torchaudio.transforms import PadTrim
+from torchaudio.transforms import PadTrim, DownmixMono
 from fastai.data_block import ItemBase
 from fastai.vision import Image
 import numpy as np
 import torch
+import warnings
 from pathlib import Path, PosixPath
 
 AUDIO_EXTENSIONS = tuple(str.lower(k) for k, v in mimetypes.types_map.items()
@@ -14,7 +15,12 @@ AUDIO_EXTENSIONS = tuple(str.lower(k) for k, v in mimetypes.types_map.items()
 class AudioItem(ItemBase):
     def __init__(self, sig=None, sr=None, path=None, spectro=None, max_to_pad=None, start=None, end=None):
         '''Holds Audio signal and/or specrogram data'''
-        if(isinstance(sig, np.ndarray)): sig = torch.from_numpy(sig).unsqueeze(0)
+        if isinstance(sig, np.ndarray): sig = torch.from_numpy(sig)
+        if sig is not None:
+            if(len(sig.shape) == 1): sig = sig.unsqueeze(0)
+            if(sig is not None and len(sig.shape) > 1 and sig.shape[0] > 1):
+                warnings.warn(f'''Audio file {path} has {sig.shape[0]} channels, automatically downmixing to mono''')
+                sig = DownmixMono(channels_first=True)(sig)
         self._sig, self._sr, self.path, self.spectro = sig, sr, path, spectro
         self.max_to_pad = max_to_pad
         self.start, self.end = start, end
@@ -28,7 +34,7 @@ class AudioItem(ItemBase):
         return f'{self.__str__()}<br />{self.ipy_audio._repr_html_()}'
 
     @classmethod
-    def open(self, item, **args):
+    def open(self, item, **kwargs):
         if isinstance(item, (Path, PosixPath, str)):
             sig, sr = torchaudio.load(item)
             return AudioItem(sig, sr, path=Path(item))
@@ -39,19 +45,18 @@ class AudioItem(ItemBase):
         print(f"File: {self.path}")
         print(f"Total Length: {round(self.duration, 2)} seconds")
         self.hear(title=title)
-        
+        for im in self.get_spec_images(): display(im)                 
+                         
+    def get_spec_images(self):
         sg = self.spectro
-        if sg is not None: 
-            if torch.all(torch.eq(sg[0], sg[1])) and torch.all(torch.eq(sg[0], sg[2])):
-                display(Image(sg[0].unsqueeze(0)))
-            else: 
-                display(Image(sg[0].unsqueeze(0)))
-                display(Image(sg[1].unsqueeze(0)))
-                display(Image(sg[2].unsqueeze(0)))
+        if sg is None: return [] 
+        if torch.all(torch.eq(sg[0], sg[1])) and torch.all(torch.eq(sg[0], sg[2])):
+            return [Image(sg[0].unsqueeze(0))]
+        else: 
+            return [Image(s.unsqueeze(0)) for s in sg]
 
     def hear(self, title=None):
         if title is not None: print("Label:", title)
-        
         if self.start is not None or self.end is not None:
             print(f"{round(self.start/self.sr, 2)}s-{round(self.end/self.sr,2)}s of original clip")
             start = 0 if self.start is None else self.start

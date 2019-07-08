@@ -77,7 +77,7 @@ class AudioConfig:
     def clear_cache(self):
         '''Delete the files and empty dirs in the cache folder'''
         if not os.path.exists(self.cache_dir/"cache_contents.txt"):
-            print("Cache not found, try calling again after creating your labellist")
+            print("Cache not found, try calling again after creating your AudioList")
             
         with open(self.cache_dir/"cache_contents.txt", 'r') as f:
             for line in f:
@@ -90,7 +90,7 @@ class AudioConfig:
         '''Check cache size, returns a tuple of int in bytes, and string representing MB'''
         cache_size = 0
         if not os.path.exists(self.cache_dir/"cache_contents.txt"):
-            print("Cache not found, try calling again after creating your labellist")
+            print("Cache not found, try calling again after creating your AudioList")
             return (None, None)
         for (path, dirs, files) in os.walk(self.cache_dir):
             for file in files:

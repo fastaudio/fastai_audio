@@ -253,15 +253,11 @@ class AudioList(ItemList):
 
     def get(self, i):
         item = self.items[i]
-        if isinstance(item, AudioItem):
-            return item
-        if isinstance(item, (PosixPath, Path)):
-            return self.open(item)
-        if isinstance(item, str):
-            if not ('/') in item: return self.open(self.path/item)
-            else:                 return self.open(item)
-
-        raise Exception("Can't handle that type")     
+        if isinstance(item, AudioItem): return item
+        if isinstance(item, (str, PosixPath, Path)):
+            if not ('/') in str(item): return self.open(self.path/item)
+            else:                      return self.open(item)
+        raise TypeError(f"Can't handle type {type(item)}, only AudioItem, str, Path or PosixPath")  
         
     def stats(self, prec=0, devs=3, figsize=(15,5)):
         '''Displays samples, plots file lengths and returns outliers of the AudioList'''

@@ -69,7 +69,7 @@ def tfm_pad_spectro(spectro, width, pad_type="zeros"):
     else:
         raise ValueError(f"pad_type {pad_type} not currently supported, only 'zeros', or 'repeat'")
         
-def tfm_pad_signal(signal, width, pad_type="zeors"):
+def tfm_pad_signal(signal, width, pad_type="zeros"):
     '''Pad signal to specified width, using specified pad mode'''
     c, x = signal.shape
     if pad_type.lower() == "zeros":

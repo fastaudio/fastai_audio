@@ -7,6 +7,7 @@ from fastai import *
 from fastai.text import *
 from fastai.vision import *
 import torch
+import torch.nn.functional as F
 import librosa
 import torchaudio
 from librosa.effects import split
@@ -40,7 +41,7 @@ def torchdelta(mel, order=1, width=9):
         {width} columns, try setting max_to_pad to a larger value to ensure a minimum width''')
     return torch.from_numpy(librosa.feature.delta(mel.numpy(), order=order, width=9))
 
-def tfm_crop_time(spectro, sr, crop_duration, hop):
+def tfm_crop_time(spectro, sr, crop_duration, hop, pad_mode="zeros"):
     '''Random crops full spectrogram to be length specified in ms by crop_duration'''
     crop_duration /= 1000
     sg = spectro.clone()
@@ -49,14 +50,46 @@ def tfm_crop_time(spectro, sr, crop_duration, hop):
     crop_width = int(sr*(crop_duration)/hop)
     #if crop_duration is longer than total clip, pad with zeros to crop_duration and return
     if crop_duration >= total_duration: 
-        padding = torch.zeros((c,y, crop_width-x))
-        sg_pad = torch.cat((sg, padding), 2)
+        sg_pad = tfm_pad_spectro(spectro, crop_width, pad_mode)
         return sg_pad, None, None
     crop_start = random.randint(0, x-crop_width)
     sg_crop = sg[:,:,crop_start:crop_start+crop_width]
     start_sample = int(crop_start*hop)
     end_sample = int(start_sample + crop_duration*sr)
     return sg_crop, start_sample, end_sample
+
+def tfm_pad_spectro(spectro, width, pad_mode="zeros"):
+    '''Pad spectrogram to specified width, using specified pad mode'''
+    c,y,x = spectro.shape
+    if pad_mode.lower() == "zeros":
+        padding = torch.zeros((c,y, width-x))
+        return torch.cat((spectro, padding), 2)
+    elif pad_mode.lower() == "repeat":
+        repeats = width//x + 1
+        return spectro.repeat(1,1,repeats)[:,:,:width]
+    else:
+        raise ValueError(f"pad_mode {pad_mode} not currently supported, only 'zeros', or 'repeat'")
+        
+def tfm_padtrim_signal(sig, width, pad_mode="zeros"):
+    '''Pad signal to specified width, using specified pad mode'''
+    c, x = sig.shape
+    if (x == width): return sig
+    elif (x > width): return sig[:,:width]
+    elif pad_mode.lower() == "zeros":
+        padding = torch.zeros((c, width-x))
+        return torch.cat((sig, padding), 1)
+    elif pad_mode.lower() == "repeat":
+        repeats = width//x + 1
+        return torch.repeat(1,repeats)[:,:width]
+    else:
+        raise ValueError(f"pad_mode {pad_mode} not currently supported, only 'zeros', or 'repeat'")
+        
+def tfm_interpolate(spectro, size, interp_mode="bilinear"):
+    '''Temporary fix to allow image resizing transform'''
+    if isinstance(size, int): size = (size, size)
+    sg = spectro.clone()
+    c,y,x = sg.shape
+    return F.interpolate(sg.unsqueeze(0), size=size, mode=interp_mode).squeeze(0)
 
 def tfm_sg_roll(spectro, max_shift_pct=0.7, direction=0, **kwargs):
     '''Shifts spectrogram along x-axis wrapping around to other side'''
@@ -65,7 +98,6 @@ def tfm_sg_roll(spectro, max_shift_pct=0.7, direction=0, **kwargs):
     if int(direction) not in [-1, 0, 1]: 
         raise ValueError("Direction must be -1(left) 0(bidirectional) or 1(right)")
     direction = random.choice([-1, 1]) if direction == 0 else direction
-    
     sg = spectro.clone()
     c, height, width = sg.shape
     roll_by = int(width*random.random()*max_shift_pct*direction)
@@ -102,7 +134,8 @@ def tfm_mask_frequency(spectro, fmasks=1, num_rows=30, start_row=None, fmask_val
         start_row = None
     return sg
 
-def get_spectro_transforms(mask_time:bool=True,
+def get_spectro_transforms(size:tuple=None,
+                           mask_time:bool=True,
                            mask_frequency:bool=True,
                            roll:bool=True,
                            xtra_tfms:Optional[Collection[Transform]]=None,
@@ -110,10 +143,12 @@ def get_spectro_transforms(mask_time:bool=True,
     "Utility func to create a list of spectrogram transforms"
     train = []
     val = []
+    if size: 
+        train.append(partial(tfm_interpolate, size=size, **kwargs))
+        val.append(partial(tfm_interpolate, size=size, **kwargs))
     if mask_time: train.append(partial(tfm_mask_time, **kwargs))
     if mask_frequency: train.append(partial(tfm_mask_frequency, **kwargs))
     if roll: train.append(partial(tfm_sg_roll, **kwargs))
-    
     return (train+listify(xtra_tfms), val)
 
 def tfm_remove_silence(signal, rate, remove_type, threshold=20, pad_ms=200):

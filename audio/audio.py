@@ -8,9 +8,10 @@ import numpy as np
 import torch
 import warnings
 from pathlib import Path, PosixPath
+from audio import *
 
-AUDIO_EXTENSIONS = tuple(str.lower(k) for k, v in mimetypes.types_map.items()
-                         if v.startswith('audio/'))
+
+AUDIO_EXTENSIONS = tuple(str.lower(k) for k, v in mimetypes.types_map.items() if v.startswith('audio/'))
 
 class AudioItem(ItemBase):
     def __init__(self, sig=None, sr=None, path=None, spectro=None, max_to_pad=None, start=None, end=None):
@@ -77,7 +78,7 @@ class AudioItem(ItemBase):
     def _reload_signal(self):
         sig, sr = torchaudio.load(self.path)
         if self.max_to_pad is not None:
-            sig = PadTrim(max_len=int(self.max_to_pad/1000*sr))(sig)
+            sig = tfm_padtrim_signal(sig, int(self.max_to_pad/1000*sr), pad_mode="zeros")
         self._sr = sr
         self._sig = sig
 

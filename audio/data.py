@@ -1,3 +1,5 @@
+from .audio import *
+from .transform import *
 from pathlib import Path as PosixPath
 from IPython.core.debugger import set_trace
 import os
@@ -10,8 +12,7 @@ from fastprogress import progress_bar
 import torchaudio
 import warnings
 from torchaudio.transforms import MelSpectrogram, SpectrogramToDB, MFCC
-from .audio import *
-from .transform import *
+
 
 def md5(s):
     return hashlib.md5(s.encode("utf-8")).hexdigest()
@@ -50,6 +51,7 @@ class AudioConfig:
     
     duration: int = None
     max_to_pad: float = None
+    pad_mode: str = "zeros"
     remove_silence: str = None
     use_spectro: bool = True
     mfcc: bool = False
@@ -215,29 +217,29 @@ class AudioList(ItemList):
                 mel = torch.load(image_path).squeeze()
                 start, end = None, None
                 if cfg.duration and cfg._processed:
-                    mel, start, end = tfm_crop_time(mel, cfg._sr, cfg.duration, cfg.sg_cfg.hop)
+                    mel, start, end = tfm_crop_time(mel, cfg._sr, cfg.duration, cfg.sg_cfg.hop, cfg.pad_mode)
                 return AudioItem(spectro=mel, path=item, max_to_pad=cfg.max_to_pad, start=start, end=end)
 
-        signal, samplerate = torchaudio.load(str(p))
-        if(cfg._sr is not None and samplerate != cfg._sr):
-            raise ValueError(f'''Multiple sample rates detected. Sample rate {samplerate} of file {str(p)} 
+        sig, sr = torchaudio.load(str(p))
+        if(cfg._sr is not None and sr != cfg._sr):
+            raise ValueError(f'''Multiple sample rates detected. Sample rate {sr} of file {str(p)} 
                                 does not match config sample rate {cfg._sr} 
                                 this means your dataset has multiple different sample rates, 
                                 please choose one and set resample_to to that value''')
-        if(signal.shape[0] > 1):
+        if(sig.shape[0] > 1):
             if not cfg.downmix:
-                warnings.warn(f'''Audio file {p} has {signal.shape[0]} channels, automatically downmixing to mono, 
+                warnings.warn(f'''Audio file {p} has {sig.shape[0]} channels, automatically downmixing to mono, 
                                 set AudioConfig.downmix=True to remove warnings''')
-            signal = DownmixMono(channels_first=True)(signal)
+            sig = DownmixMono(channels_first=True)(sig)
         if cfg.max_to_pad or cfg.segment_size:
             pad_len = cfg.max_to_pad if cfg.max_to_pad is not None else cfg.segment_size
-            signal = PadTrim(max_len=int(pad_len/1000*samplerate))(signal)
+            sig = tfm_padtrim_signal(sig, int(pad_len/1000*sr), pad_mode="zeros")
 
         mel = None
         if cfg.use_spectro:
-            if cfg.mfcc: mel = MFCC(sr=samplerate, n_mfcc=cfg.sg_cfg.n_mfcc, melkwargs=cfg.sg_cfg.mel_args())(signal)
+            if cfg.mfcc: mel = MFCC(sr=sr, n_mfcc=cfg.sg_cfg.n_mfcc, melkwargs=cfg.sg_cfg.mel_args())(sig)
             else:
-                mel = MelSpectrogram(**(cfg.sg_cfg.mel_args()))(signal)
+                mel = MelSpectrogram(**(cfg.sg_cfg.mel_args()))(sig)
                 if cfg.sg_cfg.to_db_scale: mel = SpectrogramToDB(top_db=cfg.sg_cfg.top_db)(mel)
             mel = mel.squeeze().permute(1, 0).flip(0)
             if cfg.standardize: mel = standardize(mel)
@@ -248,20 +250,16 @@ class AudioList(ItemList):
                 torch.save(mel, image_path)
             start, end = None, None
             if cfg.duration and cfg._processed: 
-                mel, start, end = tfm_crop_time(mel, cfg._sr, cfg.duration, cfg.sg_cfg.hop)
-        return AudioItem(sig=signal.squeeze(), sr=samplerate, spectro=mel, path=item, start=start, end=end)
+                mel, start, end = tfm_crop_time(mel, cfg._sr, cfg.duration, cfg.sg_cfg.hop, cfg.pad_mode)
+        return AudioItem(sig=sig.squeeze(), sr=sr, spectro=mel, path=item, start=start, end=end)
 
     def get(self, i):
         item = self.items[i]
-        if isinstance(item, AudioItem):
-            return item
-        if isinstance(item, (PosixPath, Path)):
-            return self.open(item)
-        if isinstance(item, str):
-            if not ('/') in item: return self.open(self.path/item)
-            else:                 return self.open(item)
-
-        raise Exception("Can't handle that type")     
+        if isinstance(item, AudioItem): return item
+        if isinstance(item, (str, PosixPath, Path)):
+            if not ('/') in str(item): return self.open(self.path/item)
+            else:                      return self.open(item)
+        raise TypeError(f"Can't handle type {type(item)}, only AudioItem, str, Path or PosixPath")  
         
     def stats(self, prec=0, devs=3, figsize=(15,5)):
         '''Displays samples, plots file lengths and returns outliers of the AudioList'''

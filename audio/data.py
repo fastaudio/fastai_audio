@@ -248,8 +248,10 @@ class AudioList(ItemList):
 
     def __init__(self, items, path, config=AudioConfig(), **kwargs):
         super().__init__(items, path, **kwargs)
+        cd = config.cache_dir 
+        if str(cd) not in str(path): 
+            config.cache_dir = path / cd
         self._label_list = AudioLabelList
-        if not '..' in str(config.cache_dir): config.cache_dir = path / config.cache_dir
         self.config = config
         self.copy_new += ['config']
 

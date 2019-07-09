@@ -46,7 +46,9 @@ class AudioItem(ItemBase):
         print(f"File: {self.path}")
         print(f"Total Length: {round(self.duration, 2)} seconds")
         self.hear(title=title)
-        for im in self.get_spec_images(): display(im)                 
+        for im in self.get_spec_images(): 
+            display(im)
+            print(f"Shape: {im.shape[1]}x{im.shape[2]}")
                          
     def get_spec_images(self):
         sg = self.spectro

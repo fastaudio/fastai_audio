@@ -8,11 +8,9 @@ def audio_learner(data:DataBunch, base_arch:Callable=models.resnet18, metrics=ac
 
 def audio_predict(learn, item:AudioItem):
     '''Applies the AudioTransforms to the item before predicting its class'''
-    config = learn.data.x.config
-    path = learn.data.x.path
-    al = AudioList([item], path, config=config).split_none().label_empty()
-    res = torch.tensor([learn.predict(ai)[1] for ai in al.x])
-    return learn.data.y.classes[torch.max(res)]
+    al = AudioList([item], path=learn.data.x.path, config=learn.data.x.config).split_none().label_empty()
+    spectro = AudioList.open(al, item.path).spectro
+    return learn.predict(spectro)
 
 def window_predict(learn, item:AudioItem, cfg, hop):
     display(item.spectro)

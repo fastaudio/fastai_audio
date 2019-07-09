@@ -200,6 +200,8 @@ def get_outliers(len_dict, devs):
     return sorted(outliers, key=lambda tup: tup[1])
 
 def _set_sr(item_path, config, path):
+    # a bit hacky, this is to make audio_predict work when an AudioItem arrives instead of path
+    if isinstance(item_path, AudioItem): item_path = item_path.path
     if not os.path.exists(item_path): item_path = path/item_path
     sig, sr = torchaudio.load(item_path)
     config._sr = sr

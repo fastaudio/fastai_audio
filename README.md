@@ -2,7 +2,11 @@
 
 Using audio with fastai. Mainly with the spectrogram approach but optionally raw signals as well.
 
-Run `./install.sh` to get started.
+# Getting started
+
+`git clone https://github.com/mogwai/fastai_audio`
+`sudo chmod +x install.sh`
+`./install.sh`
 
 Features:
 

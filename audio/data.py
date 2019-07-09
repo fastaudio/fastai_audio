@@ -90,9 +90,10 @@ class AudioConfig:
                         os.remove(line)
                     except Exception as e:
                         print(f"Warning: Failed to remove {line}, due to error {str(e)}...continuing")
-                    parent = Path(line).parents[0]
-                    parent_dirs.add(parent)
-                    num_removed += 1
+                    else:
+                        parent = Path(line).parents[0]
+                        parent_dirs.add(parent)
+                        num_removed += 1
         for parent in parent_dirs:
             if(os.path.exists(parent) and len(parent.ls()) == 0): 
                 try: 

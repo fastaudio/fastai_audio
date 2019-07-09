@@ -68,10 +68,51 @@ class AudioConfig:
     sg_cfg: SpectrogramConfig = SpectrogramConfig()
         
     def __setattr__(self, name, value):
+        '''Override to warn user if they are mixing seconds and ms'''
         if name in 'duration max_to_pad segment_size'.split():
             if value is not None and value <= 30:
                 warnings.warn(f"{name} should be in milliseconds, it looks like you might be trying to use seconds")
         super(AudioConfig, self).__setattr__(name, value)
+        
+    def clear_cache(self):
+        '''Delete the files and empty dirs in the cache folder'''
+        num_removed = 0
+        parent_dirs = set()
+        if not os.path.exists(self.cache_dir/"cache_contents.txt"):
+            print("Cache contents not found, try calling again after creating your AudioList")
+            
+        with open(self.cache_dir/"cache_contents.txt", 'r') as f:
+            pb = progress_bar(f.read().split('\n')[:-1])
+            for line in pb:
+                if not os.path.exists(line): continue
+                else:
+                    try:
+                        os.remove(line)
+                    except Exception as e:
+                        print(f"Warning: Failed to remove {line}, due to error {str(e)}...continuing")
+                    else:
+                        parent = Path(line).parents[0]
+                        parent_dirs.add(parent)
+                        num_removed += 1
+        for parent in parent_dirs:
+            if(os.path.exists(parent) and len(parent.ls()) == 0): 
+                try: 
+                    os.rmdir(str(parent))
+                except Exception as e:
+                    print(f"Warning: Unable to remove empty dir {parent}, due to error {str(e)}...continuing")       
+        os.remove(self.cache_dir/"cache_contents.txt")
+        print(f"{num_removed} files removed")
+     
+    def cache_size(self):
+        '''Check cache size, returns a tuple of int in bytes, and string representing MB'''
+        cache_size = 0
+        if not os.path.exists(self.cache_dir):
+            print("Cache not found, try calling again after creating your AudioList")
+            return (None, None)
+        for (path, dirs, files) in os.walk(self.cache_dir):
+            for file in files:
+                cache_size += os.path.getsize(os.path.join(path, file))
+        return (cache_size, f"{cache_size//(2**20)} MB")
     
 def get_cache(config, cache_type, item_path, params):
     if not config.cache_dir: return None
@@ -106,6 +147,7 @@ def resample_item(item, config, path):
         sig, sr = torchaudio.load(item_path)
         sig = [tfm_resample(sig, sr, sr_new)]
         files = make_cache(sig, sr_new, config, "rs", item_path, [sr_new])
+        _record_cache_contents(config, files)
     return list(zip(files, [label]*len(files)))
 
 def remove_silence(item, config, path):
@@ -119,6 +161,7 @@ def remove_silence(item, config, path):
         sig, sr = torchaudio.load(item_path)
         sigs = tfm_remove_silence(sig, sr, remove_type, st, sp)
         files = make_cache(sigs, sr, config, cache_prefix, item_path, [st, sp])
+        _record_cache_contents(config, files)
     return list(zip(files, [label]*len(files)))
 
 def segment_items(item, config, path):
@@ -136,7 +179,17 @@ def segment_items(item, config, path):
             if((i+1)*segsize <= siglen): sigs.append(sig[i*segsize:(i+1)*segsize])
             else: sigs.append(torch.cat([sig[i*segsize:], torch.zeros(segsize-len(sig[i*segsize:]))]))
         files = make_cache(sigs, sr, config, "s", item_path, [config.segment_size])
+        _record_cache_contents(config, files)
     return list(zip(files, [label]*len(files)))
+
+def _record_cache_contents(cfg, files):
+    '''Writes cache filenames to log for safe removal using 'clear_cache()' '''
+    try:
+        with open(cfg.cache_dir/"cache_contents.txt", 'a+') as f:
+            for file in files: 
+                f.write(str(file)+'\n')
+    except Exception as e:
+        print(f"Unable to save files to cache log, cache at {cfg.cache_dir} may need to be cleared manually")
 
 def get_outliers(len_dict, devs):
     np_lens = array(list(len_dict.values()))
@@ -248,6 +301,7 @@ class AudioList(ItemList):
             if cfg.cache:
                 os.makedirs(image_path.parent, exist_ok=True)
                 torch.save(mel, image_path)
+                _record_cache_contents(cfg, [image_path])
             start, end = None, None
             if cfg.duration and cfg._processed: 
                 mel, start, end = tfm_crop_time(mel, cfg._sr, cfg.duration, cfg.sg_cfg.hop, cfg.pad_mode)
@@ -289,9 +343,7 @@ class AudioList(ItemList):
         xticks = np.linspace(int(min(rounded)), int(max(rounded))+1, 10)
         plt.xticks(xticks)
         plt.show()
-   
-    
-
+  
     @classmethod
     def from_folder(cls, path: PathOrStr = '.', extensions: Collection[str] = None, recurse: bool = True, **kwargs) -> ItemList:
         if not extensions:

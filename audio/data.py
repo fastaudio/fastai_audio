@@ -77,6 +77,7 @@ class AudioConfig:
     def clear_cache(self):
         '''Delete the files and empty dirs in the cache folder'''
         num_removed = 0
+        parent_dirs = set()
         if not os.path.exists(self.cache_dir/"cache_contents.txt"):
             print("Cache contents not found, try calling again after creating your AudioList")
             
@@ -84,11 +85,20 @@ class AudioConfig:
             pb = progress_bar(f.read().split('\n')[:-1])
             for line in pb:
                 if not os.path.exists(line): continue
-                else: 
-                    os.remove(line)
-                    num_removed += 1
+                else:
+                    try:
+                        os.remove(line)
+                    except Exception as e:
+                        print(f"Warning: Failed to remove {line}, due to error {str(e)}...continuing")
                     parent = Path(line).parents[0]
-                    if(os.path.exists(parent) and len(parent.ls()) == 0): os.rmdir(str(parent))
+                    parent_dirs.add(parent)
+                    num_removed += 1
+        for parent in parent_dirs:
+            if(os.path.exists(parent) and len(parent.ls()) == 0): 
+                try: 
+                    os.rmdir(str(parent))
+                except Exception as e:
+                    print(f"Warning: Unable to remove empty dir {parent}, due to error {str(e)}...continuing")       
         os.remove(self.cache_dir/"cache_contents.txt")
         print(f"{num_removed} files removed")
      
@@ -173,9 +183,12 @@ def segment_items(item, config, path):
 
 def _record_cache_contents(cfg, files):
     '''Writes cache filenames to log for safe removal using 'clear_cache()' '''
-    with open(cfg.cache_dir/"cache_contents.txt", 'a+') as f:
-        for file in files: 
-            f.write(str(file)+'\n')
+    try:
+        with open(cfg.cache_dir/"cache_contents.txt", 'a+') as f:
+            for file in files: 
+                f.write(str(file)+'\n')
+    except Exception as e:
+        print(f"Unable to save files to cache log, cache at {cfg.cache_dir} may need to be cleared manually")
 
 def get_outliers(len_dict, devs):
     np_lens = array(list(len_dict.values()))

@@ -246,12 +246,12 @@ class AudioLabelList(LabelList):
 
 class AudioList(ItemList):
     _bunch = AudioDataBunch
-    _label_list = AudioLabelList
     config: AudioConfig
 
     def __init__(self, items, path, config=AudioConfig(), **kwargs):
         super().__init__(items, path, **kwargs)
-        cd = config.cache_dir 
+        cd = config.cache_dir
+        self._label_list = AudioLabelList
         if str(path) not in str(cd): 
             config.cache_dir = path / cd
         self.config = config

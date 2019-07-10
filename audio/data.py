@@ -246,12 +246,14 @@ class AudioLabelList(LabelList):
 
 class AudioList(ItemList):
     _bunch = AudioDataBunch
+    _label_list = AudioLabelList
     config: AudioConfig
 
     def __init__(self, items, path, config=AudioConfig(), **kwargs):
         super().__init__(items, path, **kwargs)
-        self._label_list = AudioLabelList
-        config.cache_dir = path / config.cache_dir
+        cd = config.cache_dir 
+        if str(path) not in str(cd): 
+            config.cache_dir = path / cd
         self.config = config
         self.copy_new += ['config']
 
@@ -264,10 +266,9 @@ class AudioList(ItemList):
 
         cfg = self.config
         if cfg.use_spectro:
-            cache_dir = self.path / cfg.cache_dir
             folder = md5(str(asdict(cfg))+str(asdict(cfg.sg_cfg)))
             fname = f"{md5(str(p))}-{p.name}.pt"
-            image_path = cache_dir/(f"{folder}/{fname}")
+            image_path = cfg.cache_dir/(f"{folder}/{fname}")
             if cfg.cache and not cfg.force_cache and image_path.exists():
                 mel = torch.load(image_path).squeeze()
                 start, end = None, None

@@ -34,6 +34,9 @@ class AudioItem(ItemBase):
     def _repr_html_(self):
         return f'{self.__str__()}<br />{self.ipy_audio._repr_html_()}'
 
+    def reconstruct(self, t): return(AudioItem(spectro=t))
+        
+    
     @classmethod
     def open(self, item, **kwargs):
         if isinstance(item, (Path, PosixPath, str)):

@@ -246,10 +246,6 @@ class AudioLabelList(LabelList):
                     items = [resample_item(i, x.config, x.path) for i in items]
                     items = reduce(concat, items, np.empty((0, 2)))
 
-#                if x.config.remove_silence:
-#                    items = [remove_silence(i, x.config, x.path) for i in items]
-#                    items = reduce(concat, items, np.empty((0, 2)))
-
                 if x.config.segment_size:
                     items = [segment_items(i, x.config, x.path) for i in items]
                     items = reduce(concat, items, np.empty((0, 2)))

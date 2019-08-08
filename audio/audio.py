@@ -1,6 +1,7 @@
 from IPython.display import Audio
 import mimetypes
 import torchaudio
+from torchaudio.transforms import PadTrim, DownmixMono
 from fastai.data_block import ItemBase
 from fastai.vision import Image
 import numpy as np

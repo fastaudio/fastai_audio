@@ -61,14 +61,16 @@ def tfm_crop_time(spectro, sr, crop_duration, hop, pad_mode="zeros"):
 def tfm_pad_spectro(spectro, width, pad_mode="zeros"):
     '''Pad spectrogram to specified width, using specified pad mode'''
     c,y,x = spectro.shape
-    if pad_mode.lower() == "zeros":
-        padding = torch.zeros((c,y, width-x))
-        return torch.cat((spectro, padding), 2)
+    if pad_mode.lower() in ["zeros", "zeros-after"]:
+        zeros_front = random.randint(0, width-x) if pad_mode.lower() == "zeros" else 0
+        pad_front = torch.zeros((c,y, zeros_front))
+        pad_back = torch.zeros((c,y, width-x-zeros_front))
+        return torch.cat((pad_front, spectro, pad_back), 2)
     elif pad_mode.lower() == "repeat":
         repeats = width//x + 1
         return spectro.repeat(1,1,repeats)[:,:,:width]
     else:
-        raise ValueError(f"pad_mode {pad_mode} not currently supported, only 'zeros', or 'repeat'")
+        raise ValueError(f"pad_mode {pad_mode} not currently supported, only 'zeros', 'zeros-after', or 'repeat'")
         
 def tfm_padtrim_signal(sig, width, pad_mode="zeros"):
     '''Pad signal to specified width, using specified pad mode'''

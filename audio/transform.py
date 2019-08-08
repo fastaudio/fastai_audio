@@ -162,7 +162,7 @@ def tfm_remove_silence(signal, rate, remove_type, threshold=20, pad_ms=200):
     elif remove_type == "trim":
         return [actual[(max(splits[0, 0]-padding,0)):splits[-1, -1]+padding].unsqueeze(0)]
     elif remove_type == "all":
-        return [torch.cat([actual[(max(a-padding,0)):(min(b+padding,len(actual)))] for (a, b) in splits])]
+        return [torch.cat([actual[int(max(a-padding/2,0)):int(min(b+padding/2,len(actual)))] for (a, b) in splits])]
     else: 
         raise ValueError(f"Valid options for silence removal are None, 'split', 'trim', 'all' not {remove_type}.")
 

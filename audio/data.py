@@ -164,6 +164,27 @@ def remove_silence(item, config, path):
         _record_cache_contents(config, files)
     return list(zip(files, [label]*len(files)))
 
+class RemoveSilenceProcessor(PreProcessor):
+    "`PreProcessor` that removes the silence from audio clips in `ds`."
+    def __init__(self, config:AudioConfig=None):
+        self.remove_type,self.silence_padding,self.silence_threshold = config.remove_silence, config.silence_padding, config.silence_threshold
+        self.config = config
+        
+    def process_one(self,item:PosixPath):
+        try:
+            files = get_cache(self.config, f"sh-{self.remove_type}", item, [self.silence_threshold, self.silence_padding])
+            if not files:
+                signal,sample_rate = torchaudio.load(item)
+                signal = tfm_remove_silence(signal, sample_rate, self.remove_type, self.silence_threshold, self.silence_padding)
+                files = make_cache(signal, sample_rate, self.config, f"sh-{self.remove_type}", item, [self.silence_threshold, self.silence_padding])
+                _record_cache_contents(self.config, files)
+            return files[0]
+        except:
+            print(item)
+        
+    def process(self, ds):
+        super().process(ds)
+
 def segment_items(item, config, path):
     item_path, label = item
     if not os.path.exists(item_path): item_path = path/item_path
@@ -225,9 +246,9 @@ class AudioLabelList(LabelList):
                     items = [resample_item(i, x.config, x.path) for i in items]
                     items = reduce(concat, items, np.empty((0, 2)))
 
-                if x.config.remove_silence:
-                    items = [remove_silence(i, x.config, x.path) for i in items]
-                    items = reduce(concat, items, np.empty((0, 2)))
+#                if x.config.remove_silence:
+#                    items = [remove_silence(i, x.config, x.path) for i in items]
+#                    items = reduce(concat, items, np.empty((0, 2)))
 
                 if x.config.segment_size:
                     items = [segment_items(i, x.config, x.path) for i in items]

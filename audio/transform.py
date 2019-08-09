@@ -95,7 +95,7 @@ def tfm_interpolate(spectro, size, interp_mode="bilinear", **kwargs):
     if isinstance(size, int): size = (size, size)
     sg = spectro.clone()
     c,y,x = sg.shape
-    return F.interpolate(sg.unsqueeze(0), size=size, mode=interp_mode).squeeze(0)
+    return F.interpolate(sg.unsqueeze(0), size=size, mode=interp_mode, align_corners=False).squeeze(0)
 
 def tfm_sg_roll(spectro, max_shift_pct=0.7, direction=0, **kwargs):
     '''Shifts spectrogram along x-axis wrapping around to other side'''

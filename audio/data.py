@@ -73,7 +73,7 @@ class AudioConfig:
             if value is not None and value <= 30:
                 warnings.warn(f"{name} should be in milliseconds, it looks like you might be trying to use seconds")
         self.__dict__[name] = value
-        
+
     def clear_cache(self):
         '''Delete the files and empty dirs in the cache folder'''
         num_removed = 0
@@ -262,9 +262,8 @@ class AudioList(ItemList):
 
     def open(self, item) -> AudioItem:
         p = Path(item)
-        if self.path is not None and str(self.path) not in str(item): p = self.path/item
-        if not p.exists(): 
-            raise FileNotFoundError(f"Neither '{item}' nor '{p}' could be found")
+        if self.path is not None and not p.exists() and str(self.path) not in str(item): p = self.path/item
+        if not p.exists(): raise FileNotFoundError(f"Neither '{item}' nor '{p}' could be found")
         if not str(p).lower().endswith(AUDIO_EXTENSIONS): raise Exception("Invalid audio file")
 
         cfg = self.config

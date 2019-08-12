@@ -242,12 +242,14 @@ class AudioLabelList(LabelList):
                     (x, y)) if len(y) > 0 else x
                 
                 if x.config.resample_to:
+                    print("Preprocessing: Resampling to", x.config.resample_to)
                     cfg._sr = x.config.resample_to 
-                    items = [resample_item(i, x.config, x.path) for i in items]
+                    items = [resample_item(i, x.config, x.path) for i in progress_bar(items)]
                     items = reduce(concat, items, np.empty((0, 2)))
 
                 if x.config.segment_size:
-                    items = [segment_items(i, x.config, x.path) for i in items]
+                    print("Preprocessing: Segmenting Items")
+                    items = [segment_items(i, x.config, x.path) for i in progress_bar(items)]
                     items = reduce(concat, items, np.empty((0, 2)))
 
                 nx, ny = tuple(zip(*items))

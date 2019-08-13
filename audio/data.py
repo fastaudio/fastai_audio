@@ -72,8 +72,8 @@ class AudioConfig:
         if name in 'duration max_to_pad segment_size'.split():
             if value is not None and value <= 30:
                 warnings.warn(f"{name} should be in milliseconds, it looks like you might be trying to use seconds")
-        super(AudioConfig, self).__setattr__(name, value)
-        
+        self.__dict__[name] = value
+
     def clear_cache(self):
         '''Delete the files and empty dirs in the cache folder'''
         num_removed = 0
@@ -242,12 +242,14 @@ class AudioLabelList(LabelList):
                     (x, y)) if len(y) > 0 else x
                 
                 if x.config.resample_to:
+                    print("Preprocessing: Resampling to", x.config.resample_to)
                     cfg._sr = x.config.resample_to 
-                    items = [resample_item(i, x.config, x.path) for i in items]
+                    items = [resample_item(i, x.config, x.path) for i in progress_bar(items)]
                     items = reduce(concat, items, np.empty((0, 2)))
 
                 if x.config.segment_size:
-                    items = [segment_items(i, x.config, x.path) for i in items]
+                    print("Preprocessing: Segmenting Items")
+                    items = [segment_items(i, x.config, x.path) for i in progress_bar(items)]
                     items = reduce(concat, items, np.empty((0, 2)))
 
                 nx, ny = tuple(zip(*items))
@@ -276,9 +278,8 @@ class AudioList(ItemList):
 
     def open(self, item) -> AudioItem:
         p = Path(item)
-        if self.path is not None and str(self.path) not in str(item): p = self.path/item
-        if not p.exists(): 
-            raise FileNotFoundError(f"Neither '{item}' nor '{p}' could be found")
+        if self.path is not None and not p.exists() and str(self.path) not in str(item): p = self.path/item
+        if not p.exists(): raise FileNotFoundError(f"Neither '{item}' nor '{p}' could be found")
         if not str(p).lower().endswith(AUDIO_EXTENSIONS): raise Exception("Invalid audio file")
 
         cfg = self.config

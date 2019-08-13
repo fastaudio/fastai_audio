@@ -61,35 +61,41 @@ def tfm_crop_time(spectro, sr, crop_duration, hop, pad_mode="zeros"):
 def tfm_pad_spectro(spectro, width, pad_mode="zeros"):
     '''Pad spectrogram to specified width, using specified pad mode'''
     c,y,x = spectro.shape
-    if pad_mode.lower() == "zeros":
-        padding = torch.zeros((c,y, width-x))
-        return torch.cat((spectro, padding), 2)
-    elif pad_mode.lower() == "repeat":
+    pad_m = pad_mode.lower()
+    if pad_m in ["zeros", "zeros-after"]:
+        zeros_front = random.randint(0, width-x) if pad_m == "zeros" else 0
+        pad_front = torch.zeros((c,y, zeros_front))
+        pad_back = torch.zeros((c,y, width-x-zeros_front))
+        return torch.cat((pad_front, spectro, pad_back), 2)
+    elif pad_m == "repeat":
         repeats = width//x + 1
         return spectro.repeat(1,1,repeats)[:,:,:width]
     else:
-        raise ValueError(f"pad_mode {pad_mode} not currently supported, only 'zeros', or 'repeat'")
+        raise ValueError(f"pad_mode {pad_m} not currently supported, only 'zeros', 'zeros-after', or 'repeat'")
         
 def tfm_padtrim_signal(sig, width, pad_mode="zeros"):
     '''Pad signal to specified width, using specified pad mode'''
     c, x = sig.shape
+    pad_m = pad_mode.lower()
     if (x == width): return sig
     elif (x > width): return sig[:,:width]
-    elif pad_mode.lower() == "zeros":
-        padding = torch.zeros((c, width-x))
-        return torch.cat((sig, padding), 1)
-    elif pad_mode.lower() == "repeat":
+    elif pad_m in ["zeros", "zeros-after"]:
+        zeros_front = random.randint(0, width-x) if pad_m == "zeros" else 0
+        pad_front = torch.zeros((c, zeros_front))
+        pad_back = torch.zeros((c, width-x-zeros_front))
+        return torch.cat((pad_front, sig, pad_back), 1)
+    elif pad_m == "repeat":
         repeats = width//x + 1
         return torch.repeat(1,repeats)[:,:width]
     else:
-        raise ValueError(f"pad_mode {pad_mode} not currently supported, only 'zeros', or 'repeat'")
+        raise ValueError(f"pad_mode {pad_m} not currently supported, only 'zeros', 'zeros-after', or 'repeat'")
         
-def tfm_interpolate(spectro, size, interp_mode="bilinear"):
+def tfm_interpolate(spectro, size, interp_mode="bilinear", **kwargs):
     '''Temporary fix to allow image resizing transform'''
     if isinstance(size, int): size = (size, size)
     sg = spectro.clone()
     c,y,x = sg.shape
-    return F.interpolate(sg.unsqueeze(0), size=size, mode=interp_mode).squeeze(0)
+    return F.interpolate(sg.unsqueeze(0), size=size, mode=interp_mode, align_corners=False).squeeze(0)
 
 def tfm_sg_roll(spectro, max_shift_pct=0.7, direction=0, **kwargs):
     '''Shifts spectrogram along x-axis wrapping around to other side'''
@@ -270,4 +276,3 @@ def get_signal_transforms(white_noise:bool=True,
     res.append(final_transform)
     #       train                   , valid
     return (res + listify(xtra_tfms), [partial(tfm_pad_to_max, mx=mx_to_pad)])
-

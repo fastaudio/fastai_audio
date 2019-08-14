@@ -158,6 +158,7 @@ def get_spectro_transforms(size:tuple=None,
     return (train+listify(xtra_tfms), val)
 
 def _merge_splits(splits, pad):
+    in_time = sum([b-a for (a,b) in splits])
     clip_end = splits[-1][1]
     merged = []
     for i in range(len(splits)):
@@ -179,8 +180,7 @@ def tfm_remove_silence(signal, rate, remove_type, threshold=20, pad_ms=200):
     elif remove_type == "trim":
         return [actual[(max(splits[0, 0]-pad,0)):splits[-1, -1]+pad].unsqueeze(0)]
     elif remove_type == "all":
-        return [torch.cat([actual[(max(a-pad,0)):(min(b+pad,len(actual)))] 
-                           for (a, b) in _merge_splits(splits, pad)])]
+        return [torch.cat([actual[a:b] for (a, b) in _merge_splits(splits, pad)])]
     else: 
         raise ValueError(f"Valid options for silence removal are None, 'split', 'trim', 'all' not {remove_type}.")
 

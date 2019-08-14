@@ -14,7 +14,6 @@ def adapt_conv(conv: Conv2d, n_channels:int, pretrained:bool=False,
     if pretrained:
         exp_shape = (conv.out_channels, conv.in_channels, *conv.kernel_size)
         assert conv.weight.shape == exp_shape, f"Unexpected weights shape, expected {exp_shape}, got {conv.weight.shape}."
-        #TODO: Allow other methods of calculating weights, e.g. other channel, mean or perhaps diversity of activations
         new_conv.weight.data[...] = conv.weight.data[:,0:1,:,:]
         if bias: new_conv.bias.data = conv.bias.data
     elif init: init_default(new_conv, init)
@@ -38,9 +37,12 @@ def adapt_model(model:Union[Module,Sequential], n_channels:int, name:str='conv1'
     else: raise TypeError(f"Could not locate first convolution layer. If it is a named layer then pass it's name, otherwise use adapt_conv.")
     update(adapt_conv(conv1, n_channels, pretrained=pretrained, init=init, padding_mode=padding_mode))
 
-def audio_learner(data:AudioDataBunch, base_arch:Callable=models.resnet18, metrics=accuracy, cut:Union[int,Callable]=None, pretrained:bool=False, lin_ftrs:Optional[Collection[int]]=None, ps:Floats=0.5, custom_head:Optional[nn.Module]=None,
-                      split_on:Optional[SplitFuncOrIdxList]=None, bn_final:bool=False, init=nn.init.kaiming_normal_,
-                      concat_pool:bool=True, padding_mode:str='zeros', **kwargs:Any)->Learner:
+# Thanks to github.com/thomasbrandon/ for the audio_learner, adapt_conv_and adapt_model functions
+def audio_learner(data:AudioDataBunch, base_arch:Callable=models.resnet18, metrics=accuracy, 
+                  cut:Union[int,Callable]=None, pretrained:bool=False, lin_ftrs:Optional[Collection[int]]=None, 
+                  ps:Floats=0.5, custom_head:Optional[nn.Module]=None, split_on:Optional[SplitFuncOrIdxList]=None, 
+                  bn_final:bool=False, init=nn.init.kaiming_normal_, concat_pool:bool=True, 
+                  padding_mode:str='zeros', **kwargs:Any)->Learner:
     '''Create a learner to apply a CNN model to audio spectrograms.'''
     learn = cnn_learner(data, base_arch, cut=cut, metrics=metrics, pretrained=pretrained, lin_ftrs=lin_ftrs, ps=ps,
                         custom_head=custom_head, split_on=split_on, bn_final=bn_final, init=init,
@@ -50,6 +52,7 @@ def audio_learner(data:AudioDataBunch, base_arch:Callable=models.resnet18, metri
     learn.unfreeze() # Model shouldn't be frozen, unlike vision
     return learn
 
+# This will have to be updated in future for multichannel but is a quick fix for now
 def _calc_channels(cfg):
     channels = 3 if cfg.delta else 1
     return channels

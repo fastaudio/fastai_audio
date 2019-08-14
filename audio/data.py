@@ -303,7 +303,7 @@ class AudioList(ItemList):
             mel = mel.squeeze().permute(1, 0).flip(0)
             if cfg.standardize: mel = standardize(mel)
             if cfg.delta: mel = torch.stack([mel, torchdelta(mel), torchdelta(mel, order=2)]) 
-            else: mel = mel.expand(3,-1,-1)
+            #else: mel = mel.expand(3,-1,-1)
             if cfg.cache:
                 os.makedirs(image_path.parent, exist_ok=True)
                 torch.save(mel, image_path)

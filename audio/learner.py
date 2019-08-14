@@ -1,4 +1,5 @@
 from .data import *
+from torch.nn import Conv2d, Sequential, Module
 
 def adapt_conv(conv: Conv2d, n_channels:int, pretrained:bool=False,
                init:Optional[Callable]=None, padding_mode:str='zeros'):

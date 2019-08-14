@@ -54,11 +54,9 @@ class AudioItem(ItemBase):
                          
     def get_spec_images(self):
         sg = self.spectro
+        print("SG SHAPE", sg.shape)
         if sg is None: return [] 
-        if torch.all(torch.eq(sg[0], sg[1])) and torch.all(torch.eq(sg[0], sg[2])):
-            return [Image(sg[0].unsqueeze(0))]
-        else: 
-            return [Image(s.unsqueeze(0)) for s in sg]
+        return [Image(s.unsqueeze(0)) for s in sg]
 
     def hear(self, title=None):
         if title is not None: print("Label:", title)

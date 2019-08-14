@@ -274,7 +274,6 @@ class AudioList(ItemList):
             if cfg.cache and not cfg.force_cache and image_path.exists():
                 mel = torch.load(image_path)
                 start, end = None, None
-                print("Shape cached", mel.shape)
                 if cfg.duration and cfg._processed:
                     mel, start, end = tfm_crop_time(mel, cfg._sr, cfg.duration, cfg.sg_cfg.hop, cfg.pad_mode)
                 return AudioItem(spectro=mel, path=item, max_to_pad=cfg.max_to_pad, start=start, end=end)
@@ -301,16 +300,13 @@ class AudioList(ItemList):
                 mel = MelSpectrogram(**(cfg.sg_cfg.mel_args()))(sig)
                 if cfg.sg_cfg.to_db_scale: mel = SpectrogramToDB(top_db=cfg.sg_cfg.top_db)(mel)
             mel = mel.permute(0, 2, 1).flip(1)
-            print("Other", mel.shape)
             if cfg.standardize: mel = standardize(mel)
-            if cfg.delta: mel = torch.stack([mel, torchdelta(mel), torchdelta(mel, order=2)]) 
-            #else: mel = mel.expand(3,-1,-1)
+            if cfg.delta: mel = torch.stack([m.squeeze(0) for m in [mel, torchdelta(mel), torchdelta(mel, order=2)]]) 
             if cfg.cache:
                 os.makedirs(image_path.parent, exist_ok=True)
                 torch.save(mel, image_path)
                 _record_cache_contents(cfg, [image_path])
             start, end = None, None
-            print("Shape uncached", mel.shape)
             if cfg.duration and cfg._processed: 
                 mel, start, end = tfm_crop_time(mel, cfg._sr, cfg.duration, cfg.sg_cfg.hop, cfg.pad_mode)
         return AudioItem(sig=sig.squeeze(), sr=sr, spectro=mel, path=item, start=start, end=end)

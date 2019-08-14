@@ -54,7 +54,6 @@ class AudioItem(ItemBase):
                          
     def get_spec_images(self):
         sg = self.spectro
-        print("SG SHAPE", sg.shape)
         if sg is None: return [] 
         return [Image(s.unsqueeze(0)) for s in sg]
 

@@ -157,18 +157,30 @@ def get_spectro_transforms(size:tuple=None,
     if roll: train.append(partial(tfm_sg_roll, **kwargs))
     return (train+listify(xtra_tfms), val)
 
+def _merge_splits(splits, pad):
+    clip_end = splits[-1][1]
+    merged = []
+    for i in range(len(splits)):
+        start = splits[i][0]
+        while splits[i][1] < clip_end and splits[i][1] + pad > splits[i+1][0] - pad:
+            i += 1
+        end = splits[i][1]
+        merged.append(np.array([max(start-pad, 0), min(end+pad, end)]))
+    return np.stack(merged)
+
 def tfm_remove_silence(signal, rate, remove_type, threshold=20, pad_ms=200):
     '''Split signal at points of silence greater than 2*pad_ms '''
     actual = signal.clone().squeeze()
-    padding = int(pad_ms/1000*rate)
-    if(padding > len(actual)): return [actual]
-    splits = split(actual.numpy(), top_db=threshold, hop_length=padding)
+    pad = int(pad_ms/1000*rate)
+    if(pad > len(actual)): return [actual]
+    splits = split(actual.numpy(), top_db=threshold, hop_length=pad)
     if remove_type == "split":
-        return [actual[(max(a-padding,0)):(min(b+padding,len(actual)))] for (a, b) in splits]
+        return [actual[(max(a-pad,0)):(min(b+pad,len(actual)))] for (a, b) in splits]
     elif remove_type == "trim":
-        return [actual[(max(splits[0, 0]-padding,0)):splits[-1, -1]+padding].unsqueeze(0)]
+        return [actual[(max(splits[0, 0]-pad,0)):splits[-1, -1]+pad].unsqueeze(0)]
     elif remove_type == "all":
-        return [torch.cat([actual[(max(a-padding,0)):(min(b+padding,len(actual)))] for (a, b) in splits])]
+        return [torch.cat([actual[(max(a-pad,0)):(min(b+pad,len(actual)))] 
+                           for (a, b) in _merge_splits(splits, pad)])]
     else: 
         raise ValueError(f"Valid options for silence removal are None, 'split', 'trim', 'all' not {remove_type}.")
 

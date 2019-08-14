@@ -42,7 +42,7 @@ def audio_learner(data:AudioDataBunch, base_arch:Callable=models.resnet18, metri
                       split_on:Optional[SplitFuncOrIdxList]=None, bn_final:bool=False, init=nn.init.kaiming_normal_,
                       concat_pool:bool=True, padding_mode:str='zeros', **kwargs:Any)->Learner:
     '''Create a learner to apply a CNN model to audio spectrograms.'''
-    learn = cnn_learner(data, base_arch, cut=cut, pretrained=pretrained, lin_ftrs=lin_ftrs, ps=ps,
+    learn = cnn_learner(data, base_arch, cut=cut, metrics=metrics, pretrained=pretrained, lin_ftrs=lin_ftrs, ps=ps,
                         custom_head=custom_head, split_on=split_on, bn_final=bn_final, init=init,
                         concat_pool=concat_pool, **kwargs)
     channels = _calc_channels(data.config)

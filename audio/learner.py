@@ -44,9 +44,14 @@ def audio_learner(data:AudioDataBunch, base_arch:Callable=models.resnet18, metri
     learn = cnn_learner(data, base_arch, cut=cut, pretrained=pretrained, lin_ftrs=lin_ftrs, ps=ps,
                         custom_head=custom_head, split_on=split_on, bn_final=bn_final, init=init,
                         concat_pool=concat_pool, **kwargs)
-    adapt_model(learn.model, data.output_info.channels, pretrained=pretrained, init=init, padding_mode=padding_mode)
+    channels = _calc_channels(data.config)
+    adapt_model(learn.model, channels, pretrained=pretrained, init=init, padding_mode=padding_mode)
     learn.unfreeze() # Model shouldn't be frozen, unlike vision
     return learn
+
+def _calc_channels(cfg):
+    channels = 3 if cfg.delta else 1
+    return channels
 
 def audio_predict(learn, item:AudioItem):
     '''Applies preprocessing to an AudioItem before predicting its class'''

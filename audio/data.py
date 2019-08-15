@@ -299,7 +299,7 @@ class AudioList(ItemList):
             else:
                 mel = MelSpectrogram(**(cfg.sg_cfg.mel_args()))(sig)
                 if cfg.sg_cfg.to_db_scale: mel = SpectrogramToDB(top_db=cfg.sg_cfg.top_db)(mel)
-            mel = mel.permute(0, 2, 1).flip(1)
+            mel = mel.permute(0, 2, 1)
             if cfg.standardize: mel = standardize(mel)
             if cfg.delta: mel = torch.stack([m.squeeze(0) for m in [mel, torchdelta(mel), torchdelta(mel, order=2)]]) 
             if cfg.cache:

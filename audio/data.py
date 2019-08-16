@@ -272,7 +272,7 @@ class AudioList(ItemList):
             fname = f"{md5(str(p))}-{p.name}.pt"
             image_path = cfg.cache_dir/(f"{folder}/{fname}")
             if cfg.cache and not cfg.force_cache and image_path.exists():
-                mel = torch.load(image_path).squeeze()
+                mel = torch.load(image_path)
                 start, end = None, None
                 if cfg.duration and cfg._processed:
                     mel, start, end = tfm_crop_time(mel, cfg._sr, cfg.duration, cfg.sg_cfg.hop, cfg.pad_mode)
@@ -299,10 +299,9 @@ class AudioList(ItemList):
             else:
                 mel = MelSpectrogram(**(cfg.sg_cfg.mel_args()))(sig)
                 if cfg.sg_cfg.to_db_scale: mel = SpectrogramToDB(top_db=cfg.sg_cfg.top_db)(mel)
-            mel = mel.squeeze().permute(1, 0).flip(0)
+            mel = mel.permute(0, 2, 1)
             if cfg.standardize: mel = standardize(mel)
-            if cfg.delta: mel = torch.stack([mel, torchdelta(mel), torchdelta(mel, order=2)]) 
-            else: mel = mel.expand(3,-1,-1)
+            if cfg.delta: mel = torch.stack([m.squeeze(0) for m in [mel, torchdelta(mel), torchdelta(mel, order=2)]]) 
             if cfg.cache:
                 os.makedirs(image_path.parent, exist_ok=True)
                 torch.save(mel, image_path)

@@ -61,6 +61,7 @@ We are looking for contributors of all skill levels. If you don't have time to c
 - [kevinbird15](https://github.com/kevinbird15)
 - [mogwai](https://github.com/mogwai)
 - [rbracco](https://github.com/rbracco)
+- [Hiromis](https://github.com/hiromis)
 
 ### Past Contributors
 - [artste](https://github.com/artste)

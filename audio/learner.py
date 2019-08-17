@@ -47,14 +47,14 @@ def audio_learner(data:AudioDataBunch, base_arch:Callable=models.resnet18, metri
     learn = cnn_learner(data, base_arch, cut=cut, metrics=metrics, pretrained=pretrained, lin_ftrs=lin_ftrs, ps=ps,
                         custom_head=custom_head, split_on=split_on, bn_final=bn_final, init=init,
                         concat_pool=concat_pool, **kwargs)
-    channels = _calc_channels(data.config)
+    channels = _calc_channels(data)
     adapt_model(learn.model, channels, pretrained=pretrained, init=init, padding_mode=padding_mode)
     learn.unfreeze() # Model shouldn't be frozen, unlike vision
     return learn
 
 # This will have to be updated in future for multichannel but is a quick fix for now
-def _calc_channels(cfg):
-    channels = 3 if cfg.delta else 1
+def _calc_channels(data:AudioDataBunch):
+    channels = data.train_ds[0][0].nchannels*3 if data.config.delta else data.train_ds[0][0].nchannels
     return channels
 
 def audio_predict(learn, item:AudioItem):

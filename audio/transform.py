@@ -158,15 +158,16 @@ def get_spectro_transforms(size:tuple=None,
     return (train+listify(xtra_tfms), val)
 
 def _merge_splits(splits, pad):
-    in_time = sum([b-a for (a,b) in splits])
     clip_end = splits[-1][1]
     merged = []
-    for i in range(len(splits)):
+    i=0
+    while i < len(splits):
         start = splits[i][0]
-        while splits[i][1] < clip_end and splits[i][1] + pad > splits[i+1][0] - pad:
+        while splits[i][1] < clip_end and splits[i][1] + pad >= splits[i+1][0] - pad:
             i += 1
         end = splits[i][1]
-        merged.append(np.array([max(start-pad, 0), min(end+pad, end)]))
+        merged.append(np.array([max(start-pad, 0), min(end+pad, clip_end)]))
+        i+=1
     return np.stack(merged)
 
 def tfm_remove_silence(signal, rate, remove_type, threshold=20, pad_ms=200):

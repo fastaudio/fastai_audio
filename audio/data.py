@@ -167,10 +167,10 @@ def remove_silence(item, config, path):
 def segment_items(item, config, path):
     item_path, label = item
     if not os.path.exists(item_path): item_path = path/item_path
-    sig, sr = torchaudio.load(item_path)
-    segsize = int(sr*config.segment_size/1000)
+    segsize = int(config._sr*config.segment_size/1000)
     files = get_cache(config, "s", item_path, [config.segment_size])
     if not files:
+        sig, sr = torchaudio.load(item_path)
         sig = sig.squeeze()
         sigs = []
         siglen = len(sig)

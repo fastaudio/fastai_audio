@@ -323,7 +323,6 @@ class AudioList(ItemList):
         mel = mel.permute(0, 2, 1)
         if self.config.standardize: 
             mel = standardize(mel)
-        #TODO Kevin go back and re-evaluate how delta is being stacked.  currently c1-c6 then c1'-c6' then c1''-c6'' maybe should be c1,c1',c1'' etc. 
         if self.config.delta: 
             mel = torch.cat([torch.stack([m,torchdelta(m),torchdelta(m, order=2)]) for m in mel]) 
         return mel

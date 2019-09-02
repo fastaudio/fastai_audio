@@ -38,7 +38,7 @@ class AudioItem(ItemBase):
         print(f"Number of Channels: {len(self.get_spec_images())}")
         for im in self.get_spec_images(): 
             display(im)
-            print(f"Shape: {im.shape[1]}x{im.shape[2]}")
+            print(f"Shape: {im.shape[-2]}x{im.shape[-1]}")
                          
     def get_spec_images(self):
         sg = self.spectro

@@ -34,11 +34,11 @@ class AudioItem(ItemBase):
     def show(self, title: [str] = None, **kwargs):
         print(f"File: {self.path}")
         print(f"Total Length: {round(self.duration, 2)} seconds")
-        self.hear(title=title)
         print(f"Number of Channels: {len(self.get_spec_images())}")
-        for im in self.get_spec_images(): 
+        self.hear(title=title)
+        for i,im in enumerate(self.get_spec_images(),start=1):
+            print(f"Channel {i} ({im.shape[-2]}x{im.shape[-1]}):")
             display(im)
-            print(f"Shape: {im.shape[-2]}x{im.shape[-1]}")
                          
     def get_spec_images(self):
         sg = self.spectro

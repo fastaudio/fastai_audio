@@ -56,19 +56,20 @@ class AudioItem(ItemBase):
         else:
             display(self.ipy_audio)
         
-    def _reload_signal(self): self._sig,self._sr = torchaudio.load(self.path)
-
+    
     def apply_tfms(self, tfms):
         for tfm in tfms:
             self.data = tfm(self.data)
         return self
+
+    def _reload_signal(self): self._sig,self._sr = torchaudio.load(self.path)
 
     @property
     def sig(self):
         if self._sig is None: self._reload_signal()
         return self._sig
     @sig.setter
-    def sig(self, sig): self._sig=sig
+    def sig(self, sig): self._sig = sig
 
     @property
     def sr(self):
@@ -101,10 +102,8 @@ class AudioItem(ItemBase):
     
     @property
     def nsamples(self): 
-#        if self.sig is None: self._check_signal()
         return self.sig.shape[-1]
     
     @property
     def nchannels(self): 
-#        if self.sig is None: self._check_signal()
         return self.sig.shape[-2]

@@ -252,6 +252,10 @@ def tfm_pad_or_trim(ai:AudioItem, mx, trim_section="mid", pad_at_end=True, **kwa
             nsig = sig.narrow(0, 0, mx)
     return AudioItem(sig=nsig, sr=ai.sr)
 
+def tfm_downmix(signal):
+    return DownmixMono(channels_first=True)(signal)
+
+
 def get_signal_transforms(white_noise:bool=True,
                          shift_max_pct:float=.6,
                          modulate_volume:bool=True,

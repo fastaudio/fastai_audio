@@ -295,9 +295,7 @@ class AudioList(ItemList):
         if self.config.use_spectro:
             item=self.add_spectro(fn)
         else:
-            if self.config.max_to_pad or self.config.segment_size:
-                pad_len = self.config.max_to_pad if self.config.max_to_pad is not None else self.config.segment_size
-                func_to_add = lambda s1,s2: tfm_padtrim_signal(s1, int(pad_len/1000*item.s1), pad_mode="zeros")
+            func_to_add = self._get_pad_func() if self.config.max_to_pad or self.config.segment_size else None
             item=open_audio(fn, func_to_add)
             self._validate_consistencies(item)
         return item
@@ -321,7 +319,8 @@ class AudioList(ItemList):
             spectro = torch.load(cache_path)
         else:
             #Dropping sig and sr off here, should I propogate this to new audio item if I have it?
-            item=open_audio(fn)
+            func_to_add = self._get_pad_func() if self.config.max_to_pad or self.config.segment_size else None 
+            item=open_audio(fn, func_to_add)
             self._validate_consistencies(item)
             spectro = self.create_spectro(item)
             if self.config.cache:
@@ -330,6 +329,13 @@ class AudioList(ItemList):
                 spectro, start, end = tfm_crop_time(spectro, self.config._sr, self.config.duration, self.config.sg_cfg.hop, self.config.pad_mode)
         return AudioItem(path=fn,spectro=spectro,start=start,end=end)
 
+    def _get_pad_func(self):
+        def pad_func(sig, sr): 
+            pad_len = self.config.max_to_pad if self.config.max_to_pad is not None else self.config.segment_size
+            num_samples = int((sr*pad_len)/1000)
+            return tfm_padtrim_signal(sig, num_samples, pad_mode="zeros")
+        return pad_func
+    
     def create_spectro(self, item:AudioItem):
         if self.config.mfcc: 
             mel = MFCC(sr=item.sr, n_mfcc=self.config.sg_cfg.n_mfcc, melkwargs=self.config.sg_cfg.mel_args())(item.sig)
@@ -400,5 +406,5 @@ def open_audio(fn:Path, after_open:Callable=None)->AudioItem:
     if not fn.exists(): raise FileNotFoundError(f"{fn}' could not be found")
     if not str(fn).lower().endswith(AUDIO_EXTENSIONS): raise Exception("Invalid audio file")
     sig, sr = torchaudio.load(fn)
-    if after_open: x = after_open(sig, sr)
+    if after_open: sig = after_open(sig, sr)
     return AudioItem(sig=sig, sr=sr, path=fn)

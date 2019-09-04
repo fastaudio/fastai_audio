@@ -302,6 +302,8 @@ class AudioList(ItemList):
         return item
 
     def _validate_consistencies(self, item):
+        print("nchannels config:",self.config._nchannels)
+        print("nchannels item:",item._nchannels)
         if(self.config._sr is not None and item.sr != self.config._sr):
             raise ValueError(f'''Multiple sample rates detected. Sample rate {item.sr} of file {item.path} 
                                 does not match config sample rate {self.config._sr} 
@@ -309,7 +311,7 @@ class AudioList(ItemList):
                                 please choose one and set resample_to to that value''')
         if(self.config._nchannels != item.nchannels):
             raise ValueError(f'''Multiple channel sizes detected. Channel size {item.nchannels} of file 
-                                {fn} does not match others' channel size of {self.config._nchannels}. A dataset may
+                                {item.path} does not match others' channel size of {self.config._nchannels}. A dataset may
                                 not contain different number of channels. Please set downmix=true in AudioConfig or 
                                 separate files with different number of channels.''')
 

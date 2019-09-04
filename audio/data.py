@@ -232,7 +232,7 @@ class AudioLabelList(LabelList):
         
         if len(x.items) > 0:
             if not cfg.resample_to: _set_sr(x.items[0], x.config, x.path)
-            _set_nchannels(x.items[0], x.config)
+            if cfg._nchannels is None: _set_nchannels(x.items[0], x.config)
             if cfg.downmix or cfg.remove_silence or cfg.segment_size or cfg.resample_to:
                 items = list(zip(x.items, y.items))
 

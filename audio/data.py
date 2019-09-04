@@ -66,6 +66,7 @@ class AudioConfig:
 
     _processed = False
     _sr = None
+    _nchannels = None
     
     sg_cfg: SpectrogramConfig = SpectrogramConfig()
         
@@ -140,6 +141,17 @@ def make_cache(sigs, sr, config, cache_type, item_path, params):
             torchaudio.save(str(fn), s, sr)
     return files
 
+def downmix_item(item, config, path):
+    item_path, label = item
+    if not os.path.exists(item_path): item_path = path/item_path
+    files = get_cache(config, "dm", item_path, [])
+    if not files:
+        sig, sr = torchaudio.load(item_path)
+        sig = [tfm_downmix(sig)]
+        files = make_cache(sig, sr, config, "dm", item_path, [])
+        _record_cache_contents(config, files)
+    return list(zip(files, [label]*len(files)))
+
 def resample_item(item, config, path):
     item_path, label = item
     if not os.path.exists(item_path): item_path = path/item_path
@@ -207,6 +219,11 @@ def _set_sr(item_path, config, path):
     sig, sr = torchaudio.load(item_path)
     config._sr = sr
 
+def _set_nchannels(item_path, config):
+    # Possibly should combine with previous def, but wanted to think more first
+    item = open_audio(item_path)
+    config._nchannels = item.nchannels
+
 class AudioLabelList(LabelList):
 
     def _pre_process(self):
@@ -215,12 +232,19 @@ class AudioLabelList(LabelList):
         
         if len(x.items) > 0:
             if not cfg.resample_to: _set_sr(x.items[0], x.config, x.path)
-            if cfg.remove_silence or cfg.segment_size or cfg.resample_to:
+            _set_nchannels(x.items[0], x.config)
+            if cfg.downmix or cfg.remove_silence or cfg.segment_size or cfg.resample_to:
                 items = list(zip(x.items, y.items))
 
                 def concat(x, y): return np.concatenate(
                     (x, y)) if len(y) > 0 else x
                 
+                if x.config.downmix:
+                    print("Preprocessing: Downmixing to Mono")
+                    cfg._nchannels=1
+                    items = [downmix_item(i, x.config, x.path) for i in progress_bar(items)]
+                    items = reduce(concat, items, np.empty((0, 2)))
+
                 if x.config.resample_to:
                     print("Preprocessing: Resampling to", x.config.resample_to)
                     cfg._sr = x.config.resample_to 
@@ -262,58 +286,50 @@ class AudioList(ItemList):
         if str(path) not in str(cd): 
             config.cache_dir = path / cd
         self.config = config
-        self.nchannels = 1 if self.config.downmix else None
         self.copy_new += ['config']
 
     def open(self, fn): # file name, it seems
-        item = open_audio(fn)
-
-        self._validate_consistencies(item)
-
-        if self.config.max_to_pad or self.config.segment_size:
-            pad_len = self.config.max_to_pad if self.config.max_to_pad is not None else self.config.segment_size
-            item.sig = tfm_padtrim_signal(item.sig, int(pad_len/1000*item.sr), pad_mode="zeros")
-       
+        fn=Path(fn)
+        if self.path is not None and not fn.exists() and str(self.path) not in str(fn): fn = self.path/item
         if self.config.use_spectro:
-            self.add_spectro(item)
-
+            item=self.add_spectro(fn)
+        else:
+            if self.config.max_to_pad or self.config.segment_size:
+                pad_len = self.config.max_to_pad if self.config.max_to_pad is not None else self.config.segment_size
+                func_to_add = lambda s1,s2: tfm_padtrim_signal(s1, int(pad_len/1000*item.s1), pad_mode="zeros")
+            item=open_audio(fn, func_to_add)
+            self._validate_consistencies(item)
         return item
 
     def _validate_consistencies(self, item):
         if(self.config._sr is not None and item.sr != self.config._sr):
-            raise ValueError(f'''Multiple sample rates detected. Sample rate {item.sr} of file {fn} 
+            raise ValueError(f'''Multiple sample rates detected. Sample rate {item.sr} of file {item.path} 
                                 does not match config sample rate {self.config._sr} 
                                 this means your dataset has multiple different sample rates, 
                                 please choose one and set resample_to to that value''')
-
-        if self.nchannels is None: self.nchannels = item.nchannels
-            
-        if item.nchannels > 1:
-            if self.config.downmix:
-                item.sig = DownmixMono(channels_first=True)(item.sig)
-
-            elif(self.nchannels != item.nchannels):
-                raise ValueError(f'''Multiple channel sizes detected. Channel size {item.nchannels} of file 
-                                {fn} does not match others' channel size of {self.nchannels}. A dataset may
+        if(self.config._nchannels != item.nchannels):
+            raise ValueError(f'''Multiple channel sizes detected. Channel size {item.nchannels} of file 
+                                {fn} does not match others' channel size of {self.config._nchannels}. A dataset may
                                 not contain different number of channels. Please set downmix=true in AudioConfig or 
                                 separate files with different number of channels.''')
 
-    def add_spectro(self, item: AudioItem):
-        cache_path = self._get_cache_path(item.path)
-
+    def add_spectro(self, fn:PathOrStr):
+        spectro,start,end=None,None,None
+        cache_path = self._get_cache_path(fn)
         if self.config.cache and cache_path.exists():
-            item.spectro = torch.load(cache_path)
+            spectro = torch.load(cache_path)
         else:
-            item.spectro = self.create_spectro(item)
+            #Dropping sig and sr off here, should I propogate this to new audio item if I have it?
+            item=open_audio(fn)
+            self._validate_consistencies(item)
+            spectro = self.create_spectro(item)
             if self.config.cache:
-                self._save_in_cache(item.path, item.spectro)
-
+                self._save_in_cache(fn, spectro)
         if self.config.duration and self.config._processed: 
-                item.spectro, item.start, item.end = tfm_crop_time(item.spectro, self.config._sr, self.config.duration, self.config.sg_cfg.hop, self.config.pad_mode)
-        return item
+                spectro, start, end = tfm_crop_time(spectro, self.config._sr, self.config.duration, self.config.sg_cfg.hop, self.config.pad_mode)
+        return AudioItem(path=fn,spectro=spectro,start=start,end=end)
 
-    
-    def create_spectro(self, item: AudioItem):
+    def create_spectro(self, item:AudioItem):
         if self.config.mfcc: 
             mel = MFCC(sr=item.sr, n_mfcc=self.config.sg_cfg.n_mfcc, melkwargs=self.config.sg_cfg.mel_args())(item.sig)
         else:
@@ -327,7 +343,7 @@ class AudioList(ItemList):
             mel = torch.cat([torch.stack([m,torchdelta(m),torchdelta(m, order=2)]) for m in mel]) 
         return mel
 
-    def _get_cache_path(self, fn):
+    def _get_cache_path(self, fn:Path):
         folder = md5(str(asdict(self.config))+str(asdict(self.config.sg_cfg)))
         fname = f"{md5(str(fn))}-{fn.name}.pt"
         return Path(self.config.cache_dir/(f"{folder}/{fname}"))
@@ -340,8 +356,7 @@ class AudioList(ItemList):
 
     def get(self, i):
         fn = super().get(i)
-        res = self.open(fn)
-        return res
+        return self.open(fn)
     
     def reconstruct(self, x): return x
     
@@ -380,7 +395,8 @@ class AudioList(ItemList):
             extensions = AUDIO_EXTENSIONS
         return cls(get_files(path, extensions, recurse), path, **kwargs)
 
-def open_audio(fn:PathOrStr, after_open:Callable=None)->AudioItem:
+def open_audio(fn:Path, after_open:Callable=None)->AudioItem:
+    if not fn.exists(): raise FileNotFoundError(f"{fn}' could not be found")
     if not str(fn).lower().endswith(AUDIO_EXTENSIONS): raise Exception("Invalid audio file")
     sig, sr = torchaudio.load(fn)
     if after_open: x = after_open(sig, sr)

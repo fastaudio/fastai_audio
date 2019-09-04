@@ -16,13 +16,12 @@ class AudioItem(ItemBase):
     def __init__(self, sig=None, sr=None, path=None, spectro=None, max_to_pad=None, start=None, end=None):
         '''Holds Audio signal and/or specrogram data'''
         if isinstance(sig, np.ndarray): sig = torch.from_numpy(sig)
-        self.sig, self.sr, self.path, self.spectro = sig, sr, path, spectro
+        self._sig, self._sr, self.path, self.spectro = sig, sr, path, spectro
         self.max_to_pad = max_to_pad
         self.start, self.end = start, end
 
     def __str__(self):
         return f'{self.__class__.__name__} {round(self.duration, 2)} seconds ({self.nchannels} channels, {self.nsamples} samples @ {self.sr}hz)'
-
 
     def __len__(self): return self.data.shape[0]
 
@@ -34,10 +33,11 @@ class AudioItem(ItemBase):
     def show(self, title: [str] = None, **kwargs):
         print(f"File: {self.path}")
         print(f"Total Length: {round(self.duration, 2)} seconds")
-        print(f"Number of Channels: {len(self.get_spec_images())}")
+        print(f"Number of Channels: {self.nchannels}")
+        images_per_channel = len(self.get_spec_images())/self.nchannels
         self.hear(title=title)
-        for i,im in enumerate(self.get_spec_images(),start=1):
-            print(f"Channel {i} ({im.shape[-2]}x{im.shape[-1]}):")
+        for i,im in enumerate(self.get_spec_images()):
+            print(f"Channel {int(i//images_per_channel)}.{int(i%images_per_channel)} ({im.shape[-2]}x{im.shape[-1]}):")
             display(im)
                          
     def get_spec_images(self):
@@ -47,6 +47,7 @@ class AudioItem(ItemBase):
 
     def hear(self, title=None):
         if title is not None: print("Label:", title)
+        if self.sig is None: self._check_signal()
         if self.start is not None or self.end is not None:
             print(f"{round(self.start/self.sr, 2)}s-{round(self.end/self.sr,2)}s of original clip")
             start = 0 if self.start is None else self.start
@@ -55,6 +56,7 @@ class AudioItem(ItemBase):
         else:
             display(self.ipy_audio)
         
+    def _reload_signal(self): self._sig,self._sr = torchaudio.load(self.path)
 
     def apply_tfms(self, tfms):
         for tfm in tfms:
@@ -62,10 +64,26 @@ class AudioItem(ItemBase):
         return self
 
     @property
+    def sig(self):
+        if self._sig is None: self._reload_signal()
+        return self._sig
+    @sig.setter
+    def sig(self, sig): self._sig=sig
+
+    @property
+    def sr(self):
+        if self._sr is None: self._reload_signal()
+        return self._sr
+    @sr.setter
+    def sr(self, sr): self._sr=sr
+
+    @property
     def shape(self): return self.data.shape
 
     @property
-    def ipy_audio(self): return Audio(data=self.sig, rate=self.sr)
+    def ipy_audio(self): 
+        if self.sig is None: self._check_signal()
+        return Audio(data=self.sig, rate=self.sr)
 
     @property
     def duration(self): 
@@ -82,7 +100,11 @@ class AudioItem(ItemBase):
         else:                        self.sig = x
     
     @property
-    def nsamples(self): return self.sig.shape[-1]
+    def nsamples(self): 
+#        if self.sig is None: self._check_signal()
+        return self.sig.shape[-1]
     
     @property
-    def nchannels(self): return self.sig.shape[0]
+    def nchannels(self): 
+#        if self.sig is None: self._check_signal()
+        return self.sig.shape[-2]

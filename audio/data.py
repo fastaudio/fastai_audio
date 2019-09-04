@@ -219,10 +219,11 @@ def _set_sr(item_path, config, path):
     sig, sr = torchaudio.load(item_path)
     config._sr = sr
 
-def _set_nchannels(item_path, config):
+def _set_nchannels(item_path, config, path):
     # Possibly should combine with previous def, but wanted to think more first
-    print("Setting nchannels")
-    item = open_audio(item_path)
+    if isinstance(item_path, AudioItem): item_path = item_path.path
+    if not os.path.exists(item_path): item_path = path/item_path
+    item = open_audio(Path(item_path))
     config._nchannels = item.nchannels
 
 class AudioLabelList(LabelList):
@@ -233,7 +234,7 @@ class AudioLabelList(LabelList):
         
         if len(x.items) > 0:
             if not cfg.resample_to: _set_sr(x.items[0], x.config, x.path)
-            if cfg._nchannels is None: _set_nchannels(x.items[0], x.config)
+            if cfg._nchannels is None: _set_nchannels(x.items[0], x.config, x.path)
             if cfg.downmix or cfg.remove_silence or cfg.segment_size or cfg.resample_to:
                 items = list(zip(x.items, y.items))
 

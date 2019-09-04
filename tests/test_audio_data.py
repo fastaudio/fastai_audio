@@ -57,6 +57,7 @@ def test_cache_segment(random_item):
     segsize = 500
     p = random_item.path
     config = AudioConfig(cache=True, segment_size=segsize)
+    config._sr=8000
     label = "Label Not Important"
     item = (p, label)
     path_segment = config.cache_dir / f"s_{md5(str(p)+str(segsize)+str(label))}"
@@ -83,23 +84,23 @@ def test_can_from_df():
 def test_downmix_True():
         data_folder = Path('data/misc/6-channel-multichannel/')
         config = AudioConfig(downmix=True)
-        al = AudioList.from_folder(data_folder, config=config)
-        assert al.get(0).nchannels == 1
-        assert al.nchannels == 1
+        al = AudioList.from_folder(data_folder, config=config).split_none().label_empty()
+        assert al.x.get(0).nchannels == 1
+        assert al.x.config._nchannels == 1
 
 def test_downmix_False():
         data_folder = Path('data/misc/6-channel-multichannel/')
         config = AudioConfig(downmix=False)
-        al = AudioList.from_folder(data_folder, config=config)
-        assert al.get(0).nchannels == 6
-        assert al.nchannels == 6
+        al = AudioList.from_folder(data_folder, config=config).split_none().label_empty()
+        assert al.x.get(0).nchannels == 6
+        assert al.x.config._nchannels == 6
 
 def test_nchannels():
         p = Path('data/misc/6-channel-multichannel/ChannelPlacement.wav')
-        a = open_audio(str(p))
+        a = open_audio(p)
         assert a.nchannels == 6
 
 def test_nsamples():
         p = Path('data/misc/6-channel-multichannel/ChannelPlacement.wav')
-        a = open_audio(str(p))
+        a = open_audio(p)
         assert a.nsamples == 415135

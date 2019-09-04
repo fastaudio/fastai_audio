@@ -221,6 +221,7 @@ def _set_sr(item_path, config, path):
 
 def _set_nchannels(item_path, config):
     # Possibly should combine with previous def, but wanted to think more first
+    print("Setting nchannels")
     item = open_audio(item_path)
     config._nchannels = item.nchannels
 
@@ -302,14 +303,12 @@ class AudioList(ItemList):
         return item
 
     def _validate_consistencies(self, item):
-        print("nchannels config:",self.config._nchannels)
-        print("nchannels item:",item._nchannels)
         if(self.config._sr is not None and item.sr != self.config._sr):
             raise ValueError(f'''Multiple sample rates detected. Sample rate {item.sr} of file {item.path} 
                                 does not match config sample rate {self.config._sr} 
                                 this means your dataset has multiple different sample rates, 
                                 please choose one and set resample_to to that value''')
-        if(self.config._nchannels != item.nchannels):
+        if(self.config._nchannels is not None and self.config._nchannels != item.nchannels):
             raise ValueError(f'''Multiple channel sizes detected. Channel size {item.nchannels} of file 
                                 {item.path} does not match others' channel size of {self.config._nchannels}. A dataset may
                                 not contain different number of channels. Please set downmix=true in AudioConfig or 

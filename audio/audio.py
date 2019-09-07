@@ -16,41 +16,29 @@ class AudioItem(ItemBase):
     def __init__(self, sig=None, sr=None, path=None, spectro=None, max_to_pad=None, start=None, end=None):
         '''Holds Audio signal and/or specrogram data'''
         if isinstance(sig, np.ndarray): sig = torch.from_numpy(sig)
-        if sig is not None:
-            if(len(sig.shape) == 1): sig = sig.unsqueeze(0)
-            if(sig is not None and len(sig.shape) > 1 and sig.shape[0] > 1):
-                warnings.warn(f'''Audio file {path} has {sig.shape[0]} channels, automatically downmixing to mono''')
-                sig = DownmixMono(channels_first=True)(sig)
         self._sig, self._sr, self.path, self.spectro = sig, sr, path, spectro
         self.max_to_pad = max_to_pad
         self.start, self.end = start, end
 
     def __str__(self):
-        return f'{self.__class__.__name__} {round(self.duration, 2)} seconds ({self.sig.shape[0]} samples @ {self.sr}hz)'
+        return f'{self.__class__.__name__} {round(self.duration, 2)} seconds ({self.nchannels} channels, {self.nsamples} samples @ {self.sr}hz)'
 
     def __len__(self): return self.data.shape[0]
-    
+
     def _repr_html_(self):
         return f'{self.__str__()}<br />{self.ipy_audio._repr_html_()}'
 
     def reconstruct(self, t): return(AudioItem(spectro=t))
-        
-    
-    @classmethod
-    def open(self, item, **kwargs):
-        if isinstance(item, (Path, PosixPath, str)):
-            sig, sr = torchaudio.load(item)
-            return AudioItem(sig, sr, path=Path(item))
-        if isinstance(item, (tuple, np.ndarray)):
-            return AudioItem(item)
 
     def show(self, title: [str] = None, **kwargs):
         print(f"File: {self.path}")
         print(f"Total Length: {round(self.duration, 2)} seconds")
+        print(f"Number of Channels: {self.nchannels}")
+        images_per_channel = len(self.get_spec_images())/self.nchannels
         self.hear(title=title)
-        for im in self.get_spec_images(): 
+        for i,im in enumerate(self.get_spec_images()):
+            print(f"Channel {int(i//images_per_channel)}.{int(i%images_per_channel)} ({im.shape[-2]}x{im.shape[-1]}):")
             display(im)
-            print(f"Shape: {im.shape[1]}x{im.shape[2]}")
                          
     def get_spec_images(self):
         sg = self.spectro
@@ -59,53 +47,48 @@ class AudioItem(ItemBase):
 
     def hear(self, title=None):
         if title is not None: print("Label:", title)
+        if self.sig is None: self._check_signal()
         if self.start is not None or self.end is not None:
             print(f"{round(self.start/self.sr, 2)}s-{round(self.end/self.sr,2)}s of original clip")
             start = 0 if self.start is None else self.start
-            end = len(self.sig)-1 if self.end is None else self.end
-            display(Audio(data=self.sig[start:end], rate=self.sr))
+            end = self.nsamples-1 if self.end is None else self.end
+            display(Audio(data=self.sig[:,start:end], rate=self.sr))
         else:
             display(self.ipy_audio)
         
-
+    
     def apply_tfms(self, tfms):
         for tfm in tfms:
             self.data = tfm(self.data)
         return self
 
-    @property
-    def shape(self): return self.data.shape
-
-    def _reload_signal(self):
-        sig, sr = torchaudio.load(self.path)
-        self._sr = sr
-        self._sig = sig
+    def _reload_signal(self): self._sig,self._sr = torchaudio.load(self.path)
 
     @property
     def sig(self):
-        if not hasattr(self, '_sig') or self._sig is None:
-            self._reload_signal()
-        return self._sig.squeeze(0)
-    
+        if self._sig is None: self._reload_signal()
+        return self._sig
     @sig.setter
     def sig(self, sig): self._sig = sig
 
     @property
     def sr(self):
-        if not hasattr(self, '_sr') or self._sr is None:
-            si, ei = torchaudio.info(str(self.path))
-            self._sr = si.rate
+        if self._sr is None: self._reload_signal()
         return self._sr
-    
     @sr.setter
-    def sr(self, sr): self._sr = sr
+    def sr(self, sr): self._sr=sr
 
     @property
-    def ipy_audio(self): return Audio(data=self.sig, rate=self.sr)
+    def shape(self): return self.data.shape
+
+    @property
+    def ipy_audio(self): 
+        if self.sig is None: self._check_signal()
+        return Audio(data=self.sig, rate=self.sr)
 
     @property
     def duration(self): 
-        if(self._sig is not None): return len(self.sig)/self.sr
+        if(self.sig is not None): return self.nsamples/self.sr
         else: 
             si, ei = torchaudio.info(str(self.path))
             return si.length/si.rate
@@ -116,3 +99,11 @@ class AudioItem(ItemBase):
     def data(self, x):
         if self.spectro is not None: self.spectro = x
         else:                        self.sig = x
+    
+    @property
+    def nsamples(self): 
+        return self.sig.shape[-1]
+    
+    @property
+    def nchannels(self): 
+        return self.sig.shape[-2]

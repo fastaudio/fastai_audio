@@ -172,26 +172,26 @@ def _merge_splits(splits, pad):
 
 def tfm_remove_silence(signal, rate, remove_type, threshold=20, pad_ms=200):
     '''Split signal at points of silence greater than 2*pad_ms '''
-    actual = signal.clone().squeeze()
-    pad = int(pad_ms/1000*rate)
-    if(pad > len(actual)): return [actual]
-    splits = split(actual.numpy(), top_db=threshold, hop_length=pad)
+    actual = signal.clone()
+    padding = int(pad_ms/1000*rate)
+    if(padding > actual.shape[-1]): return [actual]
+    splits = split(actual.numpy(), top_db=threshold, hop_length=padding)
     if remove_type == "split":
-        return [actual[(max(a-pad,0)):(min(b+pad,len(actual)))] for (a, b) in splits]
+        return [actual[:,(max(a-padding,0)):(min(b+padding,actual.shape[-1]))] for (a, b) in _merge_splits(splits, padding)]
     elif remove_type == "trim":
-        return [actual[(max(splits[0, 0]-pad,0)):splits[-1, -1]+pad].unsqueeze(0)]
+        return [actual[:,(max(splits[0, 0]-padding,0)):splits[-1, -1]+padding]]
     elif remove_type == "all":
-        return [torch.cat([actual[a:b] for (a, b) in _merge_splits(splits, pad)])]
+        return [torch.cat([actual[:,(max(a-padding,0)):(min(b+padding,actual.shape[-1]))] for (a, b) in _merge_splits(splits, padding)], dim=1)]
     else: 
         raise ValueError(f"Valid options for silence removal are None, 'split', 'trim', 'all' not {remove_type}.")
 
 def tfm_resample(signal, sr, sr_new):
     '''Resample using faster polyphase technique and avoiding FFT computation'''
     if(sr == sr_new): return signal
-    sig_np = signal.squeeze(0).numpy()
+    sig_np = signal.numpy()
     sr_gcd = math.gcd(sr, sr_new)
-    resampled = resample_poly(sig_np, int(sr_new/sr_gcd), int(sr/sr_gcd))
-    return torch.from_numpy(resampled).unsqueeze(0)
+    resampled = resample_poly(sig_np, int(sr_new/sr_gcd), int(sr/sr_gcd), axis=-1)
+    return torch.from_numpy(resampled)
 
 def tfm_shift(ai:AudioItem, max_pct=0.2):
     v = (.5 - random.random())*max_pct*len(ai.sig)
@@ -264,6 +264,10 @@ def tfm_pad_or_trim(ai:AudioItem, mx, trim_section="mid", pad_at_end=True, **kwa
         else:
             nsig = sig.narrow(0, 0, mx)
     return AudioItem(sig=nsig, sr=ai.sr)
+
+def tfm_downmix(signal):
+    return DownmixMono(channels_first=True)(signal)
+
 
 def get_signal_transforms(white_noise:bool=True,
                          shift_max_pct:float=.6,

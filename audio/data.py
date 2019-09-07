@@ -46,8 +46,8 @@ class SpectrogramConfig:
 class AudioConfig:
     '''Options for pre-processing audio signals'''
     cache: bool = True
-    cache_dir = Path('.cache')
-    force_cache = False
+    cache_dir = Path.home()/'.fastai/cache'
+    # force_cache = False >>> DEPRECATED Use clear cache instead
     
     duration: int = None
     max_to_pad: float = None
@@ -63,8 +63,11 @@ class AudioConfig:
     resample_to: int = None
     standardize: bool = False
     downmix: bool = False
+
     _processed = False
     _sr = None
+    _nchannels = None
+    
     sg_cfg: SpectrogramConfig = SpectrogramConfig()
         
     def __setattr__(self, name, value):
@@ -132,11 +135,22 @@ def make_cache(sigs, sr, config, cache_type, item_path, params):
     if len(sigs) > 0:
         os.makedirs(mark, exist_ok=True)
         for i, s in enumerate(sigs):
-            if len(s) < 1: continue
+            if s.shape[-1] < 1: continue
             fn = mark/(str(i) + '.wav')
             files.append(fn)
             torchaudio.save(str(fn), s, sr)
     return files
+
+def downmix_item(item, config, path):
+    item_path, label = item
+    if not os.path.exists(item_path): item_path = path/item_path
+    files = get_cache(config, "dm", item_path, [])
+    if not files:
+        sig, sr = torchaudio.load(item_path)
+        sig = [tfm_downmix(sig)]
+        files = make_cache(sig, sr, config, "dm", item_path, [])
+        _record_cache_contents(config, files)
+    return list(zip(files, [label]*len(files)))
 
 def resample_item(item, config, path):
     item_path, label = item
@@ -171,13 +185,12 @@ def segment_items(item, config, path):
     if not files:
         sig, sr = torchaudio.load(item_path)
         segsize = int(config._sr*config.segment_size/1000)
-        sig = sig.squeeze()
         sigs = []
-        siglen = len(sig)
+        siglen = sig.shape[-1]
         for i in range((siglen//segsize) + 1):
             #if there is a full segment, add it, if not take the remaining part and zero pad to correct length
-            if((i+1)*segsize <= siglen): sigs.append(sig[i*segsize:(i+1)*segsize])
-            else: sigs.append(torch.cat([sig[i*segsize:], torch.zeros(segsize-len(sig[i*segsize:]))]))
+            if((i+1)*segsize <= siglen): sigs.append(sig[:,i*segsize:(i+1)*segsize])
+            else: sigs.append(torch.cat([sig[:,i*segsize:], torch.zeros(sig.shape[0],segsize-sig[:,i*segsize:].shape[-1])],dim=1))
         files = make_cache(sigs, sr, config, "s", item_path, [config.segment_size])
         _record_cache_contents(config, files)
     return list(zip(files, [label]*len(files)))
@@ -206,6 +219,13 @@ def _set_sr(item_path, config, path):
     sig, sr = torchaudio.load(item_path)
     config._sr = sr
 
+def _set_nchannels(item_path, config, path):
+    # Possibly should combine with previous def, but wanted to think more first
+    if isinstance(item_path, AudioItem): item_path = item_path.path
+    if not os.path.exists(item_path): item_path = path/item_path
+    item = open_audio(Path(item_path))
+    config._nchannels = item.nchannels
+
 class AudioLabelList(LabelList):
 
     def _pre_process(self):
@@ -214,12 +234,19 @@ class AudioLabelList(LabelList):
         
         if len(x.items) > 0:
             if not cfg.resample_to: _set_sr(x.items[0], x.config, x.path)
-            if cfg.remove_silence or cfg.segment_size or cfg.resample_to:
+            if cfg._nchannels is None: _set_nchannels(x.items[0], x.config, x.path)
+            if cfg.downmix or cfg.remove_silence or cfg.segment_size or cfg.resample_to:
                 items = list(zip(x.items, y.items))
 
                 def concat(x, y): return np.concatenate(
                     (x, y)) if len(y) > 0 else x
                 
+                if x.config.downmix:
+                    print("Preprocessing: Downmixing to Mono")
+                    cfg._nchannels=1
+                    items = [downmix_item(i, x.config, x.path) for i in progress_bar(items)]
+                    items = reduce(concat, items, np.empty((0, 2)))
+
                 if x.config.resample_to:
                     print("Preprocessing: Resampling to", x.config.resample_to)
                     cfg._sr = x.config.resample_to 
@@ -247,6 +274,9 @@ class AudioLabelList(LabelList):
         super().process(*args, **kwargs)
         self.x.config._processed = True
 
+    @property
+    def c(self): return np.unique(self.y.items).shape[0]
+
 class AudioList(ItemList):
     _bunch = AudioDataBunch
     config: AudioConfig
@@ -260,64 +290,81 @@ class AudioList(ItemList):
         self.config = config
         self.copy_new += ['config']
 
-    def open(self, item) -> AudioItem:
-        p = Path(item)
-        if self.path is not None and not p.exists() and str(self.path) not in str(item): p = self.path/item
-        if not p.exists(): raise FileNotFoundError(f"Neither '{item}' nor '{p}' could be found")
-        if not str(p).lower().endswith(AUDIO_EXTENSIONS): raise Exception("Invalid audio file")
+    def open(self, fn): # file name, it seems
+        fn=Path(fn)
+        if self.path is not None and not fn.exists() and str(self.path) not in str(fn): fn = self.path/item
+        if self.config.use_spectro:
+            item=self.add_spectro(fn)
+        else:
+            func_to_add = self._get_pad_func() if self.config.max_to_pad or self.config.segment_size else None
+            item=open_audio(fn, func_to_add)
+            self._validate_consistencies(item)
+        return item
 
-        cfg = self.config
-        if cfg.use_spectro:
-            folder = md5(str(asdict(cfg))+str(asdict(cfg.sg_cfg)))
-            fname = f"{md5(str(p))}-{p.name}.pt"
-            image_path = cfg.cache_dir/(f"{folder}/{fname}")
-            if cfg.cache and not cfg.force_cache and image_path.exists():
-                mel = torch.load(image_path)
-                start, end = None, None
-                if cfg.duration and cfg._processed:
-                    mel, start, end = tfm_crop_time(mel, cfg._sr, cfg.duration, cfg.sg_cfg.hop, cfg.pad_mode)
-                return AudioItem(spectro=mel, path=item, max_to_pad=cfg.max_to_pad, start=start, end=end)
-
-        sig, sr = torchaudio.load(str(p))
-        if(cfg._sr is not None and sr != cfg._sr):
-            raise ValueError(f'''Multiple sample rates detected. Sample rate {sr} of file {str(p)} 
-                                does not match config sample rate {cfg._sr} 
+    def _validate_consistencies(self, item):
+        if(self.config._sr is not None and item.sr != self.config._sr):
+            raise ValueError(f'''Multiple sample rates detected. Sample rate {item.sr} of file {item.path} 
+                                does not match config sample rate {self.config._sr} 
                                 this means your dataset has multiple different sample rates, 
                                 please choose one and set resample_to to that value''')
-        if(sig.shape[0] > 1):
-            if not cfg.downmix:
-                warnings.warn(f'''Audio file {p} has {sig.shape[0]} channels, automatically downmixing to mono, 
-                                set AudioConfig.downmix=True to remove warnings''')
-            sig = DownmixMono(channels_first=True)(sig)
-        if cfg.max_to_pad or cfg.segment_size:
-            pad_len = cfg.max_to_pad if cfg.max_to_pad is not None else cfg.segment_size
-            sig = tfm_padtrim_signal(sig, int(pad_len/1000*sr), pad_mode="zeros")
+        if(self.config._nchannels is not None and self.config._nchannels != item.nchannels):
+            raise ValueError(f'''Multiple channel sizes detected. Channel size {item.nchannels} of file 
+                                {item.path} does not match others' channel size of {self.config._nchannels}. A dataset may
+                                not contain different number of channels. Please set downmix=true in AudioConfig or 
+                                separate files with different number of channels.''')
 
-        mel = None
-        if cfg.use_spectro:
-            if cfg.mfcc: mel = MFCC(sr=sr, n_mfcc=cfg.sg_cfg.n_mfcc, melkwargs=cfg.sg_cfg.mel_args())(sig)
-            else:
-                mel = MelSpectrogram(**(cfg.sg_cfg.mel_args()))(sig)
-                if cfg.sg_cfg.to_db_scale: mel = SpectrogramToDB(top_db=cfg.sg_cfg.top_db)(mel)
-            mel = mel.permute(0, 2, 1)
-            if cfg.standardize: mel = standardize(mel)
-            if cfg.delta: mel = torch.stack([m.squeeze(0) for m in [mel, torchdelta(mel), torchdelta(mel, order=2)]]) 
-            if cfg.cache:
-                os.makedirs(image_path.parent, exist_ok=True)
-                torch.save(mel, image_path)
-                _record_cache_contents(cfg, [image_path])
-            start, end = None, None
-            if cfg.duration and cfg._processed: 
-                mel, start, end = tfm_crop_time(mel, cfg._sr, cfg.duration, cfg.sg_cfg.hop, cfg.pad_mode)
-        return AudioItem(sig=sig.squeeze(), sr=sr, spectro=mel, path=item, start=start, end=end)
+    def add_spectro(self, fn:PathOrStr):
+        spectro,start,end=None,None,None
+        cache_path = self._get_cache_path(fn)
+        if self.config.cache and cache_path.exists():
+            spectro = torch.load(cache_path)
+        else:
+            #Dropping sig and sr off here, should I propogate this to new audio item if I have it?
+            func_to_add = self._get_pad_func() if self.config.max_to_pad or self.config.segment_size else None 
+            item=open_audio(fn, func_to_add)
+            self._validate_consistencies(item)
+            spectro = self.create_spectro(item)
+            if self.config.cache:
+                self._save_in_cache(fn, spectro)
+        if self.config.duration and self.config._processed: 
+                spectro, start, end = tfm_crop_time(spectro, self.config._sr, self.config.duration, self.config.sg_cfg.hop, self.config.pad_mode)
+        return AudioItem(path=fn,spectro=spectro,start=start,end=end)
+
+    def _get_pad_func(self):
+        def pad_func(sig, sr): 
+            pad_len = self.config.max_to_pad if self.config.max_to_pad is not None else self.config.segment_size
+            num_samples = int((sr*pad_len)/1000)
+            return tfm_padtrim_signal(sig, num_samples, pad_mode="zeros")
+        return pad_func
+    
+    def create_spectro(self, item:AudioItem):
+        if self.config.mfcc: 
+            mel = MFCC(sr=item.sr, n_mfcc=self.config.sg_cfg.n_mfcc, melkwargs=self.config.sg_cfg.mel_args())(item.sig)
+        else:
+            mel = MelSpectrogram(**(self.config.sg_cfg.mel_args()))(item.sig)
+            if self.config.sg_cfg.to_db_scale: 
+                mel = SpectrogramToDB(top_db=self.config.sg_cfg.top_db)(mel)
+        mel = mel.permute(0, 2, 1)
+        if self.config.standardize: 
+            mel = standardize(mel)
+        if self.config.delta: 
+            mel = torch.cat([torch.stack([m,torchdelta(m),torchdelta(m, order=2)]) for m in mel]) 
+        return mel
+
+    def _get_cache_path(self, fn:Path):
+        folder = md5(str(asdict(self.config))+str(asdict(self.config.sg_cfg)))
+        fname = f"{md5(str(fn))}-{fn.name}.pt"
+        return Path(self.config.cache_dir/(f"{folder}/{fname}"))
+
+    def _save_in_cache(self, fn, spectro):
+        cache_path = self._get_cache_path(fn)
+        os.makedirs(cache_path.parent, exist_ok=True)
+        torch.save(spectro, cache_path)
+        _record_cache_contents(self.config, [cache_path])
 
     def get(self, i):
-        item = self.items[i]
-        if isinstance(item, AudioItem): return item
-        if isinstance(item, (str, PosixPath, Path)):
-            if not ('/') in str(item): return self.open(self.path/item)
-            else:                      return self.open(item)
-        raise TypeError(f"Can't handle type {type(item)}, only AudioItem, str, Path or PosixPath")  
+        fn = super().get(i)
+        return self.open(fn)
     
     def reconstruct(self, x): return x
     
@@ -355,3 +402,10 @@ class AudioList(ItemList):
         if not extensions:
             extensions = AUDIO_EXTENSIONS
         return cls(get_files(path, extensions, recurse), path, **kwargs)
+
+def open_audio(fn:Path, after_open:Callable=None)->AudioItem:
+    if not fn.exists(): raise FileNotFoundError(f"{fn}' could not be found")
+    if not str(fn).lower().endswith(AUDIO_EXTENSIONS): raise Exception("Invalid audio file")
+    sig, sr = torchaudio.load(fn)
+    if after_open: sig = after_open(sig, sr)
+    return AudioItem(sig=sig, sr=sr, path=fn)

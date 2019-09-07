@@ -14,11 +14,11 @@ def path():
 
 @pytest.fixture(scope="module")
 def random_item(path):
-    return AudioItem(path=random.choice(path.ls()))
+    return open_audio(random.choice(path.ls()))
 
 @pytest.fixture(scope="module")
 def fixed_item(path):
-    return AudioItem(path=path.ls()[0])
+    return open_audio(path.ls()[0])
 
 def test_resample(random_item):
     #this_tests(tfm_resample)

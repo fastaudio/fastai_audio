@@ -1,0 +1,4 @@
+torch==1.2.0
+fastai==1.0.52
+jupyter==1.0.0
+torchaudio==0.3.0

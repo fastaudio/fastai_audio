@@ -1,6 +1,6 @@
 # Fast AI Audio
 
-This is an audio module built on top of FastAI to allow you to quickly and easily build machine learning models for a wide variety of audio applications. We are an unofficial library and have no official connection to fastai except that we are huge fans and want to help make their tools more widely available.
+This is an audio module built on top of FastAI to allow you to quickly and easily build machine learning models for a wide variety of audio applications. We are an unofficial library and have no official connection to fastai except that we are huge fans and want to help make their tools more widely available and applicable to audio.
 
 # Installation
 To install, run the following commands in a shell. 

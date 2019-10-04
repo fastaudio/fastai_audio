@@ -61,35 +61,41 @@ def tfm_crop_time(spectro, sr, crop_duration, hop, pad_mode="zeros"):
 def tfm_pad_spectro(spectro, width, pad_mode="zeros"):
     '''Pad spectrogram to specified width, using specified pad mode'''
     c,y,x = spectro.shape
-    if pad_mode.lower() == "zeros":
-        padding = torch.zeros((c,y, width-x))
-        return torch.cat((spectro, padding), 2)
-    elif pad_mode.lower() == "repeat":
+    pad_m = pad_mode.lower()
+    if pad_m in ["zeros", "zeros-after"]:
+        zeros_front = random.randint(0, width-x) if pad_m == "zeros" else 0
+        pad_front = torch.zeros((c,y, zeros_front))
+        pad_back = torch.zeros((c,y, width-x-zeros_front))
+        return torch.cat((pad_front, spectro, pad_back), 2)
+    elif pad_m == "repeat":
         repeats = width//x + 1
         return spectro.repeat(1,1,repeats)[:,:,:width]
     else:
-        raise ValueError(f"pad_mode {pad_mode} not currently supported, only 'zeros', or 'repeat'")
+        raise ValueError(f"pad_mode {pad_m} not currently supported, only 'zeros', 'zeros-after', or 'repeat'")
         
 def tfm_padtrim_signal(sig, width, pad_mode="zeros"):
     '''Pad signal to specified width, using specified pad mode'''
     c, x = sig.shape
+    pad_m = pad_mode.lower()
     if (x == width): return sig
     elif (x > width): return sig[:,:width]
-    elif pad_mode.lower() == "zeros":
-        padding = torch.zeros((c, width-x))
-        return torch.cat((sig, padding), 1)
-    elif pad_mode.lower() == "repeat":
+    elif pad_m in ["zeros", "zeros-after"]:
+        zeros_front = random.randint(0, width-x) if pad_m == "zeros" else 0
+        pad_front = torch.zeros((c, zeros_front))
+        pad_back = torch.zeros((c, width-x-zeros_front))
+        return torch.cat((pad_front, sig, pad_back), 1)
+    elif pad_m == "repeat":
         repeats = width//x + 1
         return torch.repeat(1,repeats)[:,:width]
     else:
-        raise ValueError(f"pad_mode {pad_mode} not currently supported, only 'zeros', or 'repeat'")
+        raise ValueError(f"pad_mode {pad_m} not currently supported, only 'zeros', 'zeros-after', or 'repeat'")
         
-def tfm_interpolate(spectro, size, interp_mode="bilinear"):
+def tfm_interpolate(spectro, size, interp_mode="bilinear", **kwargs):
     '''Temporary fix to allow image resizing transform'''
     if isinstance(size, int): size = (size, size)
     sg = spectro.clone()
     c,y,x = sg.shape
-    return F.interpolate(sg.unsqueeze(0), size=size, mode=interp_mode).squeeze(0)
+    return F.interpolate(sg.unsqueeze(0), size=size, mode=interp_mode, align_corners=False).squeeze(0)
 
 def tfm_sg_roll(spectro, max_shift_pct=0.7, direction=0, **kwargs):
     '''Shifts spectrogram along x-axis wrapping around to other side'''
@@ -151,28 +157,41 @@ def get_spectro_transforms(size:tuple=None,
     if roll: train.append(partial(tfm_sg_roll, **kwargs))
     return (train+listify(xtra_tfms), val)
 
+def _merge_splits(splits, pad):
+    clip_end = splits[-1][1]
+    merged = []
+    i=0
+    while i < len(splits):
+        start = splits[i][0]
+        while splits[i][1] < clip_end and splits[i][1] + pad >= splits[i+1][0] - pad:
+            i += 1
+        end = splits[i][1]
+        merged.append(np.array([max(start-pad, 0), min(end+pad, clip_end)]))
+        i+=1
+    return np.stack(merged)
+
 def tfm_remove_silence(signal, rate, remove_type, threshold=20, pad_ms=200):
     '''Split signal at points of silence greater than 2*pad_ms '''
-    actual = signal.clone().squeeze()
+    actual = signal.clone()
     padding = int(pad_ms/1000*rate)
-    if(padding > len(actual)): return [actual]
+    if(padding > actual.shape[-1]): return [actual]
     splits = split(actual.numpy(), top_db=threshold, hop_length=padding)
     if remove_type == "split":
-        return [actual[(max(a-padding,0)):(min(b+padding,len(actual)))] for (a, b) in splits]
+        return [actual[:,(max(a-padding,0)):(min(b+padding,actual.shape[-1]))] for (a, b) in _merge_splits(splits, padding)]
     elif remove_type == "trim":
-        return [actual[(max(splits[0, 0]-padding,0)):splits[-1, -1]+padding].unsqueeze(0)]
+        return [actual[:,(max(splits[0, 0]-padding,0)):splits[-1, -1]+padding]]
     elif remove_type == "all":
-        return [torch.cat([actual[(max(a-padding,0)):(min(b+padding,len(actual)))] for (a, b) in splits])]
+        return [torch.cat([actual[:,(max(a-padding,0)):(min(b+padding,actual.shape[-1]))] for (a, b) in _merge_splits(splits, padding)], dim=1)]
     else: 
         raise ValueError(f"Valid options for silence removal are None, 'split', 'trim', 'all' not {remove_type}.")
 
 def tfm_resample(signal, sr, sr_new):
     '''Resample using faster polyphase technique and avoiding FFT computation'''
     if(sr == sr_new): return signal
-    sig_np = signal.squeeze(0).numpy()
+    sig_np = signal.numpy()
     sr_gcd = math.gcd(sr, sr_new)
-    resampled = resample_poly(sig_np, int(sr_new/sr_gcd), int(sr/sr_gcd))
-    return torch.from_numpy(resampled).unsqueeze(0)
+    resampled = resample_poly(sig_np, int(sr_new/sr_gcd), int(sr/sr_gcd), axis=-1)
+    return torch.from_numpy(resampled)
 
 def tfm_shift(ai:AudioItem, max_pct=0.2):
     v = (.5 - random.random())*max_pct*len(ai.sig)
@@ -245,6 +264,10 @@ def tfm_pad_or_trim(ai:AudioItem, mx, trim_section="mid", pad_at_end=True, **kwa
         else:
             nsig = sig.narrow(0, 0, mx)
     return AudioItem(sig=nsig, sr=ai.sr)
+
+def tfm_downmix(signal):
+    return DownmixMono(channels_first=True)(signal)
+
 
 def get_signal_transforms(white_noise:bool=True,
                          shift_max_pct:float=.6,

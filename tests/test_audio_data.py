@@ -18,7 +18,7 @@ def audio_list(path):
 
 @pytest.fixture(scope="module")
 def random_item(path):
-    return AudioItem(path=random.choice(path.ls()))
+    return open_audio(random.choice(path.ls()))
 
 def test_path_can_be_str_type(path):
     #this_tests(AudioList.from_folder)
@@ -43,7 +43,7 @@ def test_cache_silence(random_item):
     #this_tests(remove_silence)
     st, sp = 20, 200
     p = random_item.path
-    config = AudioConfig(cache=True, silence_threshold=st, silence_padding=sp)
+    config = AudioConfig(cache=True, silence_threshold=st, silence_padding=sp, remove_silence='all')
     item = (p, "Label Not Important")
     path_silence = config.cache_dir / f"sh_{md5(str(p)+str(st)+str(sp))}"
     files = remove_silence(item, config, p)
@@ -57,6 +57,7 @@ def test_cache_segment(random_item):
     segsize = 500
     p = random_item.path
     config = AudioConfig(cache=True, segment_size=segsize)
+    config._sr=8000
     label = "Label Not Important"
     item = (p, label)
     path_segment = config.cache_dir / f"s_{md5(str(p)+str(segsize)+str(label))}"
@@ -67,15 +68,39 @@ def test_cache_segment(random_item):
         assert torchaudio.load(f)
 
 def test_can_open():
-    p = Path('data/Right_whale.wav')
-    AudioItem.open(p)
-
+    p = Path('data/misc/whale/Right_whale.wav')
+    output = open_audio(p)
+    assert isinstance(output, AudioItem)
 
 def test_can_from_folder():
-    al = AudioList.from_folder('data')
+    al = AudioList.from_folder('data/misc/whale')
     assert len(al) == 1
 
 def test_can_from_df():
-        df = pd.DataFrame(['Right_whale.wav']*2)
+        df = pd.DataFrame(['data/misc/whale/Right_whale.wav']*2)
         al = AudioList.from_df(df, 'data')
         assert len(al) == 2
+
+def test_downmix_True():
+        data_folder = Path('data/misc/6-channel-multichannel/')
+        config = AudioConfig(downmix=True)
+        al = AudioList.from_folder(data_folder, config=config).split_none().label_empty()
+        assert al.x.get(0).nchannels == 1
+        assert al.x.config._nchannels == 1
+
+def test_downmix_False():
+        data_folder = Path('data/misc/6-channel-multichannel/')
+        config = AudioConfig(downmix=False)
+        al = AudioList.from_folder(data_folder, config=config).split_none().label_empty()
+        assert al.x.get(0).nchannels == 6
+        assert al.x.config._nchannels == 6
+
+def test_nchannels():
+        p = Path('data/misc/6-channel-multichannel/ChannelPlacement.wav')
+        a = open_audio(p)
+        assert a.nchannels == 6
+
+def test_nsamples():
+        p = Path('data/misc/6-channel-multichannel/ChannelPlacement.wav')
+        a = open_audio(p)
+        assert a.nsamples == 415135

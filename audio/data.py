@@ -11,7 +11,7 @@ from fastai.vision import *
 from fastprogress import progress_bar
 import torchaudio
 import warnings
-from torchaudio.transforms import MelSpectrogram, SpectrogramToDB, MFCC
+from torchaudio.transforms import MelSpectrogram, AmplitudeToDB, MFCC
 
 
 def md5(s):

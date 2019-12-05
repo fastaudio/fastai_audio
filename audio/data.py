@@ -274,8 +274,7 @@ class AudioLabelList(LabelList):
         super().process(*args, **kwargs)
         self.x.config._processed = True
 
-    @property
-    def c(self): return np.unique(self.y.items).shape[0]
+
 
 class AudioList(ItemList):
     _bunch = AudioDataBunch

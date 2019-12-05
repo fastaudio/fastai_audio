@@ -398,10 +398,10 @@ class AudioList(ItemList):
         plt.show()
   
     @classmethod
-    def from_folder(cls, path: PathOrStr = '.', extensions: Collection[str] = None, recurse: bool = True, **kwargs) -> ItemList:
-        if not extensions:
-            extensions = AUDIO_EXTENSIONS
-        return cls(get_files(path, extensions, recurse), path, **kwargs)
+    def from_folder(cls, path:PathOrStr='.', extensions:Collection[str]=None, **kwargs)->ItemList:
+        "Get the list of files in `path` that have an audio suffix. `recurse` determines if we search subfolders."
+        extensions = ifnone(extensions, AUDIO_EXTENSIONS)
+        return super().from_folder(path=path, extensions=extensions, **kwargs)
 
 def open_audio(fn:Path, after_open:Callable=None)->AudioItem:
     if not fn.exists(): raise FileNotFoundError(f"{fn}' could not be found")

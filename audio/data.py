@@ -402,6 +402,21 @@ class AudioList(ItemList):
         "Get the list of files in `path` that have an audio suffix. `recurse` determines if we search subfolders."
         extensions = ifnone(extensions, AUDIO_EXTENSIONS)
         return super().from_folder(path=path, extensions=extensions, **kwargs)
+        
+        
+    @classmethod
+    def from_df(cls, df:DataFrame, path:PathOrStr, cols:IntsOrStrs=0, folder:PathOrStr=None, suffix:str='', **kwargs)->ItemList:
+        "Get the filenames in `cols` of `df` with `folder` in front of them, `suffix` at the end."
+        suffix = suffix or ''
+        res = super().from_df(df, path=path, cols=cols, **kwargs)
+
+
+        pref = f'{res.path}{os.path.sep}'
+        if folder is not None: pref += f'{folder}{os.path.sep}'
+        res.items = np.char.add(np.char.add(pref, res.items.astype(str)), suffix)
+        return res    
+        
+        
 
 def open_audio(fn:Path, after_open:Callable=None)->AudioItem:
     if not fn.exists(): raise FileNotFoundError(f"{fn}' could not be found")

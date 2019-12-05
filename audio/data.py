@@ -28,19 +28,19 @@ class AudioDataBunch(DataBunch):
 @dataclass
 class SpectrogramConfig:
     '''Configuration for how Spectrograms are generated'''
-    f_min: int = 0
-    f_max: int = 22050
-    hop: int = 256
+    f_min: float = 0.0
+    f_max: float = 22050.0
+    hop_length: int = 256
     n_fft: int = 2560
     n_mels: int = 128
     pad: int = 0
     to_db_scale: bool = True
     top_db: int = 100
-    ws: int = None
+    win_length: int = None
     n_mfcc: int = 20
     def mel_args(self):
-        return {k:v for k, v in asdict(self).items() if k in ["f_min", "f_max", "hop", "n_fft", 
-                                                      "n_mels", "pad", "ws"]}
+        return {k:v for k, v in asdict(self).items() if k in ["f_min", "f_max", "hop_length", "n_fft", 
+                                                      "n_mels", "pad", "win_length"]}
         
 @dataclass
 class AudioConfig:
@@ -327,7 +327,7 @@ class AudioList(ItemList):
             if self.config.cache:
                 self._save_in_cache(fn, spectro)
         if self.config.duration and self.config._processed: 
-                spectro, start, end = tfm_crop_time(spectro, self.config._sr, self.config.duration, self.config.sg_cfg.hop, self.config.pad_mode)
+                spectro, start, end = tfm_crop_time(spectro, self.config._sr, self.config.duration, self.config.sg_cfg.hop_length, self.config.pad_mode)
         return AudioItem(path=fn,spectro=spectro,start=start,end=end)
 
     def _get_pad_func(self):
@@ -339,12 +339,12 @@ class AudioList(ItemList):
     
     def create_spectro(self, item:AudioItem):
         if self.config.mfcc: 
-            mel = MFCC(sr=item.sr, n_mfcc=self.config.sg_cfg.n_mfcc, melkwargs=self.config.sg_cfg.mel_args())(item.sig)
+            mel = MFCC(sample_rate=item.sr, n_mfcc=self.config.sg_cfg.n_mfcc, melkwargs=self.config.sg_cfg.mel_args())(item.sig)
         else:
             mel = MelSpectrogram(**(self.config.sg_cfg.mel_args()))(item.sig)
             if self.config.sg_cfg.to_db_scale: 
-                mel = SpectrogramToDB(top_db=self.config.sg_cfg.top_db)(mel)
-        mel = mel.permute(0, 2, 1)
+                mel = AmplitudeToDB(top_db=self.config.sg_cfg.top_db)(mel)
+        #mel = mel.permute(0, 2, 1)
         if self.config.standardize: 
             mel = standardize(mel)
         if self.config.delta: 

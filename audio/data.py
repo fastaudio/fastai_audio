@@ -345,6 +345,7 @@ class AudioList(ItemList):
             if self.config.sg_cfg.to_db_scale: 
                 mel = AmplitudeToDB(top_db=self.config.sg_cfg.top_db)(mel)
         #mel = mel.permute(0, 2, 1)
+        mel = mel.detach()
         if self.config.standardize: 
             mel = standardize(mel)
         if self.config.delta: 

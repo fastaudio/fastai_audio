@@ -37,7 +37,8 @@ class AudioItem(ItemBase):
         self.hear(title=title)
         for i,im in enumerate(self.get_spec_images()):
             print(f"Channel {int(i//images_per_channel)}.{int(i%images_per_channel)} ({im.shape[-2]}x{im.shape[-1]}):")
-            display(im)
+            display(im.rotate(180).flip_lr())
+            
                          
     def get_spec_images(self):
         sg = self.spectro

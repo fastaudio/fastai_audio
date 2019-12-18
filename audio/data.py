@@ -343,7 +343,6 @@ class AudioList(ItemList):
             mel = MelSpectrogram(**(self.config.sg_cfg.mel_args()))(item.sig)
             if self.config.sg_cfg.to_db_scale: 
                 mel = AmplitudeToDB(top_db=self.config.sg_cfg.top_db)(mel)
-        #mel = mel.permute(0, 2, 1)
         mel = mel.detach()
         if self.config.standardize: 
             mel = standardize(mel)

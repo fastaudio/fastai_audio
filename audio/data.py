@@ -143,6 +143,7 @@ def make_cache(sigs, sr, config, cache_type, item_path, params):
 
 def downmix_item(item, config, path):
     item_path, label = item
+    if isinstance(item_path, str): item_path = PosixPath(item_path)
     if not os.path.exists(item_path): item_path = path/item_path
     files = get_cache(config, "dm", item_path, [])
     if not files:
@@ -154,6 +155,7 @@ def downmix_item(item, config, path):
 
 def resample_item(item, config, path):
     item_path, label = item
+    if isinstance(item_path, str): item_path = PosixPath(item_path)
     if not os.path.exists(item_path): item_path = path/item_path
     sr_new = config.resample_to
     files = get_cache(config, "rs", item_path, [sr_new])
@@ -166,6 +168,7 @@ def resample_item(item, config, path):
 
 def remove_silence(item, config, path):
     item_path, label = item
+    if isinstance(item_path, str): item_path = PosixPath(item_path)
     if not os.path.exists(item_path): item_path = path/item_path
     st, sp = config.silence_threshold, config.silence_padding
     remove_type = config.remove_silence
@@ -180,6 +183,7 @@ def remove_silence(item, config, path):
 
 def segment_items(item, config, path):
     item_path, label = item
+    if isinstance(item_path, str): item_path = PosixPath(item_path)
     if not os.path.exists(item_path): item_path = path/item_path
     files = get_cache(config, "s", item_path, [config.segment_size])
     if not files:

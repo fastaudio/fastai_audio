@@ -2,21 +2,14 @@
 
 This is an audio module built on top of FastAI to allow you to quickly and easily build machine learning models for a wide variety of audio applications. We are an unofficial library and have no official connection to fastai except that we are huge fans and want to help make their tools more widely available and applicable to audio.
 
-# Dependencies
-Currently uses Pytorch 1.30, FastAI 1.0.59, Librosa 0.7.1
-```
-conda install -c pytorch -c fastai fastai
-conda install -c pytorch torchaudio
-conda install -c conda-forge librosa
-```
-
-
 # Installation
 To install, run the following commands in a shell. 
 
 ```
 git clone https://github.com/mogwai/fastai_audio
 cd fastai_audio
+sudo chmod +x install.sh
+./install.sh
 ```
 
 If you wish to work in a folder other than fastai_audio, you can link the audio folder by navigating in the terminal to the folder where your notebooks are and running

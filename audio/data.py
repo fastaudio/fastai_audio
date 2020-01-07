@@ -312,7 +312,7 @@ class AudioList(ItemList):
                                 not contain different number of channels. Please set downmix=true in AudioConfig or 
                                 separate files with different number of channels.''')
 
-    def add_spectro(self, fn:PathOrStr):
+    def add_spectro(self, fn:PathOrStr, from_item_lists=True):
         spectro,start,end=None,None,None
         cache_path = self._get_cache_path(fn)
         if self.config.cache and cache_path.exists():

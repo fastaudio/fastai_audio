@@ -59,7 +59,7 @@ def _calc_channels(data:AudioDataBunch):
 
 def audio_predict(learn, item:AudioItem):
     '''Applies preprocessing to an AudioItem before predicting its class'''
-    al = AudioList([item], path=item.path, config=learn.data.x.config).split_none().label_empty()
+    al = AudioList([item], path=item.path, config=learn.data.x.config)
     ai = AudioList.open(al, item.path)
     return learn.predict(ai)                                              
 

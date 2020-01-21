@@ -240,12 +240,6 @@ def tfm_down_and_up(ai:AudioItem, sr_divisor=2, **kwargs)->AudioItem:
     sig = torch.tensor(librosa.audio.resample(down, ai.sr/sr_divisor, ai.sr))
     return AudioItem(sig,ai.sr)
 
-def tfm_pad_to_max(ai:AudioItem, mx=1000):
-    """Pad tensor with zeros (silence) until it reaches length `mx`"""
-    copy = ai.sig.clone()
-    padded = torchaudio.transforms.PadTrim(max_len=mx)(copy[None,:]).squeeze()
-    return AudioItem(padded, ai.sr)
-
 def tfm_pad_or_trim(ai:AudioItem, mx, trim_section="mid", pad_at_end=True, **kwargs):
     """Pad tensor with zeros (silence) until it reaches length `mx` frames, or trim clip to length `mx` frames"""
     sig = ai.sig.clone()
@@ -266,7 +260,7 @@ def tfm_pad_or_trim(ai:AudioItem, mx, trim_section="mid", pad_at_end=True, **kwa
     return AudioItem(sig=nsig, sr=ai.sr)
 
 def tfm_downmix(signal):
-    return DownmixMono(channels_first=True)(signal)
+    return torch.mean(signal, 0,True)
 
 
 def get_signal_transforms(white_noise:bool=True,

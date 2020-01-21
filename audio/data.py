@@ -11,7 +11,7 @@ from fastai.vision import *
 from fastprogress import progress_bar
 import torchaudio
 import warnings
-from torchaudio.transforms import MelSpectrogram, SpectrogramToDB, MFCC
+from torchaudio.transforms import MelSpectrogram, AmplitudeToDB, MFCC
 
 
 def md5(s):
@@ -28,19 +28,19 @@ class AudioDataBunch(DataBunch):
 @dataclass
 class SpectrogramConfig:
     '''Configuration for how Spectrograms are generated'''
-    f_min: int = 0
-    f_max: int = 22050
-    hop: int = 256
+    f_min: float = 0.0
+    f_max: float = 22050.0
+    hop_length: int = 256
     n_fft: int = 2560
     n_mels: int = 128
     pad: int = 0
     to_db_scale: bool = True
     top_db: int = 100
-    ws: int = None
+    win_length: int = None
     n_mfcc: int = 20
     def mel_args(self):
-        return {k:v for k, v in asdict(self).items() if k in ["f_min", "f_max", "hop", "n_fft", 
-                                                      "n_mels", "pad", "ws"]}
+        return {k:v for k, v in asdict(self).items() if k in ["f_min", "f_max", "hop_length", "n_fft", 
+                                                      "n_mels", "pad", "win_length"]}
         
 @dataclass
 class AudioConfig:
@@ -278,8 +278,7 @@ class AudioLabelList(LabelList):
         super().process(*args, **kwargs)
         self.x.config._processed = True
 
-    @property
-    def c(self): return np.unique(self.y.items).shape[0]
+
 
 class AudioList(ItemList):
     _bunch = AudioDataBunch
@@ -317,7 +316,7 @@ class AudioList(ItemList):
                                 not contain different number of channels. Please set downmix=true in AudioConfig or 
                                 separate files with different number of channels.''')
 
-    def add_spectro(self, fn:PathOrStr):
+    def add_spectro(self, fn:PathOrStr, from_item_lists=True):
         spectro,start,end=None,None,None
         cache_path = self._get_cache_path(fn)
         if self.config.cache and cache_path.exists():
@@ -331,7 +330,7 @@ class AudioList(ItemList):
             if self.config.cache:
                 self._save_in_cache(fn, spectro)
         if self.config.duration and self.config._processed: 
-                spectro, start, end = tfm_crop_time(spectro, self.config._sr, self.config.duration, self.config.sg_cfg.hop, self.config.pad_mode)
+                spectro, start, end = tfm_crop_time(spectro, self.config._sr, self.config.duration, self.config.sg_cfg.hop_length, self.config.pad_mode)
         return AudioItem(path=fn,spectro=spectro,start=start,end=end)
 
     def _get_pad_func(self):
@@ -343,12 +342,12 @@ class AudioList(ItemList):
     
     def create_spectro(self, item:AudioItem):
         if self.config.mfcc: 
-            mel = MFCC(sr=item.sr, n_mfcc=self.config.sg_cfg.n_mfcc, melkwargs=self.config.sg_cfg.mel_args())(item.sig)
+            mel = MFCC(sample_rate=item.sr, n_mfcc=self.config.sg_cfg.n_mfcc, melkwargs=self.config.sg_cfg.mel_args())(item.sig)
         else:
             mel = MelSpectrogram(**(self.config.sg_cfg.mel_args()))(item.sig)
             if self.config.sg_cfg.to_db_scale: 
-                mel = SpectrogramToDB(top_db=self.config.sg_cfg.top_db)(mel)
-        mel = mel.permute(0, 2, 1)
+                mel = AmplitudeToDB(top_db=self.config.sg_cfg.top_db)(mel)
+        mel = mel.detach()
         if self.config.standardize: 
             mel = standardize(mel)
         if self.config.delta: 
@@ -402,10 +401,25 @@ class AudioList(ItemList):
         plt.show()
   
     @classmethod
-    def from_folder(cls, path: PathOrStr = '.', extensions: Collection[str] = None, recurse: bool = True, **kwargs) -> ItemList:
-        if not extensions:
-            extensions = AUDIO_EXTENSIONS
-        return cls(get_files(path, extensions, recurse), path, **kwargs)
+    def from_folder(cls, path:PathOrStr='.', extensions:Collection[str]=None, **kwargs)->ItemList:
+        "Get the list of files in `path` that have an audio suffix. `recurse` determines if we search subfolders."
+        extensions = ifnone(extensions, AUDIO_EXTENSIONS)
+        return super().from_folder(path=path, extensions=extensions, **kwargs)
+        
+        
+    @classmethod
+    def from_df(cls, df:DataFrame, path:PathOrStr, cols:IntsOrStrs=0, folder:PathOrStr=None, suffix:str='', **kwargs)->ItemList:
+        "Get the filenames in `cols` of `df` with `folder` in front of them, `suffix` at the end."
+        suffix = suffix or ''
+        res = super().from_df(df, path=path, cols=cols, **kwargs)
+
+
+        pref = f'{res.path}{os.path.sep}'
+        if folder is not None: pref += f'{folder}{os.path.sep}'
+        res.items = np.char.add(np.char.add(pref, res.items.astype(str)), suffix)
+        return res    
+        
+        
 
 def open_audio(fn:Path, after_open:Callable=None)->AudioItem:
     if not fn.exists(): raise FileNotFoundError(f"{fn}' could not be found")

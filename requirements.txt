@@ -1,0 +1,6 @@
+fastai
+torchaudio
+pydub
+librosa
+matplotlib
+fire

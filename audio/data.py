@@ -8,7 +8,7 @@ from dataclasses import dataclass, asdict
 import hashlib
 import matplotlib as plt
 from fastai.vision import *
-from fastprogress import progress_bar
+from fastprogress.fastprogress import progress_bar
 import torchaudio
 import warnings
 from torchaudio.transforms import MelSpectrogram, AmplitudeToDB, MFCC

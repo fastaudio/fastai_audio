@@ -8,10 +8,10 @@ env:
     - PIPENV_IGNORE_VIRTUALENVS=1
 
 install:
-  - pip install pipenv
-  - pipenv --python `which python`
-  - pipenv install --dev --skip-lock
+  - pip install -r requirements.txt
+  - pip install nbformat jupyter
 
 script:
   - pwd
-  - pipenv run pytest
+  - pip freeze
+  - pytest

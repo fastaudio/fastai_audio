@@ -9,8 +9,9 @@ env:
 
 install:
   - pip install pipenv
-  - pipenv --three
+  - pipenv --python `which python`
   - pipenv install --dev --skip-lock
 
 script:
+  - pwd
   - pipenv run pytest

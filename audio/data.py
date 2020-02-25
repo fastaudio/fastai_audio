@@ -1,6 +1,7 @@
 from .audio import *
 from .transform import *
 from pathlib import Path as PosixPath
+from typing import Tuple, Callable
 from IPython.core.debugger import set_trace
 import os
 from collections import Counter
@@ -12,6 +13,10 @@ from fastprogress import progress_bar
 import torchaudio
 import warnings
 from torchaudio.transforms import MelSpectrogram, AmplitudeToDB, MFCC
+
+
+class EmptyFileException(Exception):
+    pass
 
 
 def md5(s):
@@ -284,7 +289,19 @@ class AudioList(ItemList):
     _bunch = AudioDataBunch
     config: AudioConfig
 
+    def _filter_empty(items):
+        def _filter(fn: Path) -> bool:
+            return os.path.exists(fn) and os.path.getsize(fn) > 0
+
+        old_count = len(items)
+        items = list(filter(_filter, items))
+        new_count = len(items)
+        if old_count != new_count:
+            print(f"Filtered out {old_count-new_count} empty files")
+        return items
+
     def __init__(self, items, path, config=AudioConfig(), **kwargs):
+        items = AudioList._filter_empty(items)
         super().__init__(items, path, **kwargs)
         cd = config.cache_dir
         self._label_list = AudioLabelList
@@ -417,13 +434,30 @@ class AudioList(ItemList):
         pref = f'{res.path}{os.path.sep}'
         if folder is not None: pref += f'{folder}{os.path.sep}'
         res.items = np.char.add(np.char.add(pref, res.items.astype(str)), suffix)
-        return res    
-        
-        
+        return res
 
-def open_audio(fn:Path, after_open:Callable=None)->AudioItem:
-    if not fn.exists(): raise FileNotFoundError(f"{fn}' could not be found")
-    if not str(fn).lower().endswith(AUDIO_EXTENSIONS): raise Exception("Invalid audio file")
-    sig, sr = torchaudio.load(fn)
-    if after_open: sig = after_open(sig, sr)
-    return AudioItem(sig=sig, sr=sr, path=fn)
+
+def try_load(fn: Path) -> Tuple[torch.Tensor, int]:
+    if not fn.exists():
+        raise FileNotFoundError(f"{fn}' could not be found")
+    if not str(fn).lower().endswith(AUDIO_EXTENSIONS):
+        raise Exception("Invalid audio file")
+
+    return torchaudio.load(fn)
+
+
+def open_audio(fn: Path, after_open: Callable = None) -> AudioItem:
+    try:
+        sig, sr = try_load(fn)
+        if after_open:
+            sig = after_open(sig, sr)
+        return AudioItem(sig=sig, sr=sr, path=fn)
+    except RuntimeError as e:
+        err_msg = f"Error loading file at {fn}"
+        if os.path.exists(fn) and os.path.getsize(fn) == 0:
+            err_msg = f"{err_msg} of size 0 with Torch Audio: {e}"
+            raise EmptyFileException(err_msg)
+        else:
+            err_msg = f"{err_msg} with Torch Audio: {e}"
+            raise RuntimeError(err_msg)
+

@@ -104,3 +104,22 @@ def test_nsamples():
         p = Path('data/misc/6-channel-multichannel/ChannelPlacement.wav')
         a = open_audio(p)
         assert a.nsamples == 415135
+
+
+def test_empty_open():
+    with pytest.raises(EmptyFileException):
+        p = Path("data/misc/test/empty.wav")
+        open_audio(p)
+
+
+def test_empty_in_list():
+    data_folder = Path("data/misc/test/")
+    config = AudioConfig(downmix=False)
+    al = AudioList.from_folder(data_folder, config=config).split_none().label_empty()
+    assert len(al.items) == 1
+
+
+def test_empty_in_df():
+    df = pd.DataFrame(["data/misc/test/empty.wav", "data/misc/test/beep.wav"])
+    al = AudioList.from_df(df, "data")
+    assert len(al) == 1

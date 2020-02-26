@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/mogwai/fastai_audio.svg?branch=master)](https://travis-ci.org/mogwai/fastai_audio)
+
 # Fast AI Audio
 
 This is an audio module built on top of FastAI to allow you to quickly and easily build machine learning models for a wide variety of audio applications. We are an unofficial library and have no official connection to fastai except that we are huge fans and want to help make their tools more widely available and applicable to audio.
@@ -20,6 +22,26 @@ If you wish to work in a folder other than fastai_audio, you can link the audio 
 `ln -s /path-to-fastai-audio/audio .`
 
 This will create a symbolic link to the audio folder which contains our code. It will appear as a folder called 'audio' in your directory and you'll be able to access it using `from audio import *`, but it won't take up any additional space. To remove, just navigate to the folder where you created the symlink and type `unlink audio`. This will remove the linked folder but leave the original intact.
+
+# Tests
+
+Dependencies for testing are listed in the dev section of the Pipfile.
+Automated CI Tests are run on travis.ci via the .travis.yml file.
+
+Setup for testing:
+
+```
+$ pip install pipenv
+$ pipenv --three
+$ pipenv shell
+$ pipenv install --dev --skip-lock
+```
+
+Run tests:
+
+```
+$ pytest
+```
 
 # Features
 

@@ -12,7 +12,7 @@ from fastai.vision import *
 from fastprogress.fastprogress import progress_bar
 import torchaudio
 import warnings
-from torchaudio.transforms import MelSpectrogram, AmplitudeToDB, MFCC
+from torchaudio.transforms import MelSpectrogram, Spectrogram, AmplitudeToDB, MFCC
 
 
 class EmptyFileException(Exception):
@@ -46,6 +46,10 @@ class SpectrogramConfig:
     def mel_args(self):
         return {k:v for k, v in asdict(self).items() if k in ["f_min", "f_max", "hop_length", "n_fft", 
                                                       "n_mels", "pad", "win_length"]}
+    def spectro_args(self):
+        return {k:v for k, v in asdict(self).items() if k in ["hop_length", "n_fft", 
+                                                      "pad", "win_length"]}
+
         
 @dataclass
 class AudioConfig:
@@ -361,7 +365,11 @@ class AudioList(ItemList):
         if self.config.mfcc: 
             mel = MFCC(sample_rate=item.sr, n_mfcc=self.config.sg_cfg.n_mfcc, melkwargs=self.config.sg_cfg.mel_args())(item.sig)
         else:
+            if self.config.sg_cfg.n_mels > 0:
               mel = MelSpectrogram(**(self.config.sg_cfg.mel_args()))(item.sig)
+            else:
+              mel = Spectrogram(**(self.config.sg_cfg.spectro_args()))(item.sig)
+            
             if self.config.sg_cfg.to_db_scale: 
                 mel = AmplitudeToDB(top_db=self.config.sg_cfg.top_db)(mel)
         mel = mel.detach()

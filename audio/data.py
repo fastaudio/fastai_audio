@@ -301,7 +301,7 @@ class AudioList(ItemList):
         return items
 
     def __init__(self, items, path, config=AudioConfig(), **kwargs):
-        items = AudioList._filter_empty(items)
+        #items = AudioList._filter_empty(items)
         super().__init__(items, path, **kwargs)
         cd = config.cache_dir
         self._label_list = AudioLabelList
@@ -361,7 +361,7 @@ class AudioList(ItemList):
         if self.config.mfcc: 
             mel = MFCC(sample_rate=item.sr, n_mfcc=self.config.sg_cfg.n_mfcc, melkwargs=self.config.sg_cfg.mel_args())(item.sig)
         else:
-            mel = MelSpectrogram(**(self.config.sg_cfg.mel_args()))(item.sig)
+              mel = MelSpectrogram(**(self.config.sg_cfg.mel_args()))(item.sig)
             if self.config.sg_cfg.to_db_scale: 
                 mel = AmplitudeToDB(top_db=self.config.sg_cfg.top_db)(mel)
         mel = mel.detach()

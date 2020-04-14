@@ -1,15 +1,13 @@
 from IPython.display import Audio
-import mimetypes
+from mimetypes import types_map
 import torchaudio
 from fastai.data_block import ItemBase
 from fastai.vision import Image
 import numpy as np
 import torch
-import warnings
 from pathlib import Path, PosixPath
 
-
-AUDIO_EXTENSIONS = tuple(str.lower(k) for k, v in mimetypes.types_map.items() if v.startswith('audio/'))
+AUDIO_EXTENSIONS = tuple(str.lower(k) for k, v in types_map.items() if v.startswith('audio/'))
 
 class AudioItem(ItemBase):
     def __init__(self, sig=None, sr=None, path=None, spectro=None, max_to_pad=None, start=None, end=None):
@@ -38,7 +36,6 @@ class AudioItem(ItemBase):
         for i,im in enumerate(self.get_spec_images()):
             print(f"Channel {int(i//images_per_channel)}.{int(i%images_per_channel)} ({im.shape[-2]}x{im.shape[-1]}):")
             display(im.rotate(180).flip_lr())
-            
                          
     def get_spec_images(self):
         sg = self.spectro
@@ -95,6 +92,7 @@ class AudioItem(ItemBase):
         
     @property
     def data(self): return self.spectro if self.spectro is not None else self.sig
+    
     @data.setter
     def data(self, x):
         if self.spectro is not None: self.spectro = x

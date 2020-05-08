@@ -57,10 +57,10 @@ def _calc_channels(data:AudioDataBunch):
     channels = data.train_ds[0][0].nchannels*3 if data.config.delta else data.train_ds[0][0].nchannels
     return channels
 
-def audio_predict(learn, item:pathorStr):
+def audio_predict(learn, item:PosixPath): #item is the path to the audio file
     '''Applies preprocessing to an AudioItem before predicting its class'''
-    al = AudioList([item], path=item, config=learn.data.x.config)
-    ai = AudioList.open(al, item)
+    al = AudioList([str(item)], path=item, config=learn.data.x.config)
+    ai = AudioList.open(al, str(item))
     return learn.predict(ai)                                              
 
 def audio_predict_all(learn, al:AudioList):

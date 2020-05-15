@@ -9,19 +9,23 @@ This is an audio module built on top of FastAI to allow you to quickly and easil
 [Google Colab Notebook](https://colab.research.google.com/drive/1HUVI1CZ-CThHUBO8l2lp6hySjrbs0SY-)
 
 # Installation
-To install, run the following commands in a shell. 
+
+You install the library with pip but it is recommended to clone the repo if you are new to audio so that you can follow one of the notebooks.
+
+1. Git Clone
 
 ```
 git clone https://github.com/mogwai/fastai_audio
 cd fastai_audio
-sudo chmod +x install.sh
-./install.sh
+pip install -e .
+jupyter notebook
 ```
 
-If you wish to work in a folder other than fastai_audio, you can link the audio folder by navigating in the terminal to the folder where your notebooks are and running
-`ln -s /path-to-fastai-audio/audio .`
+2. Pip
 
-This will create a symbolic link to the audio folder which contains our code. It will appear as a folder called 'audio' in your directory and you'll be able to access it using `from audio import *`, but it won't take up any additional space. To remove, just navigate to the folder where you created the symlink and type `unlink audio`. This will remove the linked folder but leave the original intact.
+```
+pip install git+https://github.com/mogwai/fastai_audio@0.1
+```
 
 # Tests
 

@@ -43,6 +43,12 @@ class SpectrogramConfig:
     top_db: int = 100
     win_length: int = None
     n_mfcc: int = 20
+    
+    def __iter__(self):
+        '''Returns dict containing all parameters and values'''
+        for attr, value in self.__dict__.items():
+            yield attr, value
+    
     def mel_args(self):
         return {k:v for k, v in asdict(self).items() if k in ["f_min", "f_max", "hop_length", "n_fft", 
                                                       "n_mels", "pad", "win_length"]}
@@ -81,6 +87,14 @@ class AudioConfig:
             if value is not None and value <= 30:
                 warnings.warn(f"{name} should be in milliseconds, it looks like you might be trying to use seconds")
         self.__dict__[name] = value
+    
+    def __iter__(self):
+        '''Returns dict containing all parameters and values'''
+        for attr, value in self.__dict__.items():
+            if attr == 'sg_cfg':
+                yield attr, dict(value)
+                continue
+            yield attr, value
 
     def clear_cache(self):
         '''Delete the files and empty dirs in the cache folder'''

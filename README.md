@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/mogwai/fastai_audio.svg?branch=master)](https://travis-ci.org/mogwai/fastai_audio)
+[![Build Status](https://travis-ci.org/fastaudio/fastai_audio.svg?branch=master)](https://travis-ci.org/mogwai/fastai_audio)
 # IMPORTANT
 
 This pacakge is now deprecated so please use the new library: https://github.com/fastaudio/fastaudio
@@ -18,7 +18,7 @@ You install the library with pip but it is recommended to clone the repo if you 
 1. Git Clone
 
 ```
-git clone https://github.com/mogwai/fastai_audio
+git clone https://github.com/fastaudio/fastai_audio
 cd fastai_audio
 pip install -e .
 jupyter notebook
@@ -27,7 +27,7 @@ jupyter notebook
 2. Pip
 
 ```
-pip install git+https://github.com/mogwai/fastai_audio@0.1
+pip install git+https://github.com/fastaudio/fastai_audio@0.1
 ```
 
 # Tests

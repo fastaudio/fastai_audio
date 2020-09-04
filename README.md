@@ -1,5 +1,5 @@
 [![Build Status](https://travis-ci.org/mogwai/fastai_audio.svg?branch=master)](https://travis-ci.org/mogwai/fastai_audio)
-# !IMPORTANT
+# IMPORTANT
 
 This pacakge is now deprecated so please use the new library: https://github.com/fastaudio/fastaudio
 

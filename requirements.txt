@@ -1,6 +1,8 @@
-fastai
-torchaudio
-pydub
-librosa
-matplotlib
-fire
+fastai==1.0.60
+torchaudio==0.6.0
+pydub==0.24.1
+librosa==0.7.2
+numba==0.48
+matplotlib==3.3.1
+fire==0.3.1
+notebook

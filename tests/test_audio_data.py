@@ -116,7 +116,7 @@ def test_empty_in_list():
     data_folder = Path("data/misc/test/")
     config = AudioConfig(downmix=False)
     al = AudioList.from_folder(data_folder, config=config).split_none().label_empty()
-    assert len(al.items) == 1
+    assert len(al.items) < len(data_folder.ls())
 
 
 def test_empty_in_df():

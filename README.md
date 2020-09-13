@@ -90,13 +90,6 @@ These operations are cached and depend on each other in the order below. If you 
 # Contributors
 We are looking for contributors of all skill levels. If you don't have time to contribute, please at least reach out and give us some feedback on the library by posting in the [fastai audio thread](https://forums.fast.ai/t/deep-learning-with-audio-thread/38123) or contact us via PM [@baz](https://forums.fast.ai/u/baz/) or [@madeupmasters](https://forums.fast.ai/u/MadeUpMasters/)
 
-### Active Contributors
-- [kevinbird15](https://github.com/kevinbird15)
-- [mogwai](https://github.com/mogwai)
-- [rbracco](https://github.com/rbracco)
-- [Hiromis](https://github.com/hiromis)
+# Citation
 
-### Past Contributors
-- [artste](https://github.com/artste)
-- [zcaceres](https://github.com/zcaceres)
-- [thommackey](https://github.com/thommackey)
+ @misc{coultas blum_bracco_2019, title={fastaudio/fastai_audio}, url={https://github.com/fastaudio/fastai_audio}, journal={GitHub}, author={Coultas Blum, Harry A and Bracco, Robert}, year={2019}, month={Jul}}

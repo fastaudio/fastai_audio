@@ -92,5 +92,5 @@ We are looking for contributors of all skill levels. If you don't have time to c
 
 # Citation
 ```
- @misc{coultas blum_bracco_2019, title={fastaudio/fastai_audio}, url={https://github.com/fastaudio/fastai_audio}, journal={GitHub}, author={Coultas Blum, Harry A and Bracco, Robert}, year={2019}, month={Jul}}
+ @misc{coultas_blum_bracco_2019, title={fastaudio/fastai_audio}, url={https://github.com/fastaudio/fastai_audio}, journal={GitHub}, author={Coultas Blum, Harry A and Bracco, Robert}, year={2019}, month={Jul}}
  ```
